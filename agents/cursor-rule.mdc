@@ -1,0 +1,14 @@
+---
+description: Time-series diagnostics -- stationarity, cointegration, half-life, KDE/QQ
+globs: ["**/*time*series*.py", "**/*stationarity*.py", "**/*cointegration*.py"]
+alwaysApply: false
+---
+
+# Time Series Analysis
+
+When diagnosing a financial time series, use the API pyramid:
+
+1. Start with `analyze_price_series`, `analyze_spread`, or `analyze_pair_cointegration`.
+2. Report `summary` before evidence.
+3. Use diagnostics helpers only for custom workflows.
+4. Do not turn diagnostics into investment advice or trading signals.

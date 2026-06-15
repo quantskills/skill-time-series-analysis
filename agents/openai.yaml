@@ -1,0 +1,32 @@
+name: time-series-analysis
+description: Time-series diagnostics for price, spread, and pair-analysis workflows.
+trigger:
+  keywords:
+    - time series analysis
+    - 时序分析
+    - stationarity
+    - 平稳性
+    - Hurst
+    - ADF
+    - KPSS
+    - cointegration
+    - 协整
+    - half-life
+    - 半衰期
+    - KDE
+    - QQ plot
+instructions: |
+  Use the highest-level API first: analyze_price_series, analyze_spread, or
+  analyze_pair_cointegration. Report the summary before evidence. Open the
+  references only when you need API details, interpretation rules, report
+  format, or anti-pattern checks.
+interface:
+  display_name: "Time Series Analysis"
+  short_description: "Price-series diagnostics and stationarity checks"
+  default_prompt: "Use $time-series-analysis to diagnose this price series before choosing a model."
+references:
+  - references/workflow.md
+  - references/api.md
+  - references/interpretation.md
+  - references/report-format.md
+  - references/anti-patterns.md
