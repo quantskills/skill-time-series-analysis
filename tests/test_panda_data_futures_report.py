@@ -7,14 +7,13 @@ import matplotlib
 import pandas as pd
 import pytest
 
-from skill_time_series_analysis import build_time_series_factor_frame, generate_time_series_report
+from skill_time_series_analysis import generate_time_series_report
 
 matplotlib.use("Agg")
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_DIR = ROOT / "reports" / "panda_data_futures"
 REPORT_MD = REPORT_DIR / "multi_symbol_futures_timeseries.md"
-FACTOR_CSV = REPORT_DIR / "multi_symbol_factors_tail.csv"
 SYMBOLS = ["IF_DOMINANT.CFE", "CU_DOMINANT.SHF", "I_DOMINANT.DCE"]
 START_DATE = "20240101"
 END_DATE = "20241231"
@@ -56,7 +55,7 @@ def _fetch_futures_bars() -> pd.DataFrame:
         start_date=START_DATE,
         end_date=END_DATE,
         type="future",
-        fields=["symbol", "date", "open", "high", "low", "close", "volume"],
+        fields=["symbol", "date", "close"],
     )
     if raw.empty:
         raise AssertionError("PandaData returned no futures bars")
@@ -67,10 +66,10 @@ def _fetch_futures_bars() -> pd.DataFrame:
         raise AssertionError(f"missing expected PandaData columns: {bars.columns.tolist()}")
     bars["date"] = pd.to_datetime(bars["date"].astype(str), format="%Y%m%d")
     bars = bars.sort_values(["symbol", "date"]).set_index("date")
-    required = {"open", "high", "low", "close", "volume"}
+    required = {"close"}
     missing = required.difference(bars.columns)
     if missing:
-        raise AssertionError(f"missing OHLCV columns: {sorted(missing)}")
+        raise AssertionError(f"missing price columns: {sorted(missing)}")
     return bars
 
 
@@ -87,7 +86,6 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
     summary_rows = []
-    factor_frames = []
     report_sections = [
         "# PandaData Futures Time-Series Analysis",
         "",
@@ -110,9 +108,6 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
             lags=[1, 5, 20],
             output_dir=symbol_report_dir,
         )
-        factors = build_time_series_factor_frame(symbol_bars, lookback=20).tail(5).copy()
-        factors.insert(0, "symbol", symbol)
-        factor_frames.append(factors.reset_index())
 
         summary_rows.append(
             {
@@ -142,8 +137,6 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
         )
 
     summary = pd.DataFrame(summary_rows)
-    factors_tail = pd.concat(factor_frames, ignore_index=True)
-    factors_tail.to_csv(FACTOR_CSV, index=False)
 
     report = "\n".join(
         [
@@ -154,26 +147,32 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
             _frame_to_markdown(summary),
             "",
             *report_sections[6:],
-            "## Factor Snapshot",
-            "",
-            f"Latest factor rows are saved at `{FACTOR_CSV.relative_to(REPORT_DIR)}`.",
-            "",
         ]
     )
     REPORT_MD.write_text(report, encoding="utf-8")
 
     assert REPORT_MD.exists()
-    assert FACTOR_CSV.exists()
     report_text = REPORT_MD.read_text(encoding="utf-8")
     for phrase in ["平稳性分析", "记忆性分析", "趋势性分析", "分布形态分析", "策略方向", "因子方向"]:
         assert phrase in report_text
+    for phrase in [
+        "## Log Diff 分析",
+        "Log diff 1",
+        "Log diff 5",
+        "Log diff 10",
+        "### Log Diff KDE / QQ",
+        "#### Log Diff KDE Diagnostics",
+        "#### Log Diff QQ Diagnostics",
+    ]:
+        assert phrase in report_text
+    for removed in ["build_time_series_" + "factor_frame", "Factor" + " Snapshot"]:
+        assert removed not in report_text
     assert REMOVED_TREND_METRIC not in report_text
     assert REMOVED_TREND_METRIC_ZH not in report_text
     assert "买入" not in report_text
     assert "卖出" not in report_text
     assert "交易信号" not in report_text
     assert set(summary["symbol"]) == set(SYMBOLS)
-    assert factors_tail["symbol"].nunique() == len(SYMBOLS)
     for symbol in SYMBOLS:
         symbol_dir = REPORT_DIR / symbol.replace(".", "_")
         assert (symbol_dir / "distribution_kde_dist.png").exists()

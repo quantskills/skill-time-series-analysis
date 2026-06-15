@@ -10,5 +10,10 @@ PANDA_DATA_ENV_FILE=/path/to/.env \
 ```
 
 The report uses PandaData real futures daily bars, calls the public
-`generate_time_series_report` API, and is kept in the repository as an
-inspectable example artifact.
+`generate_time_series_report` API, includes original-series and Log diff 1/5/10
+diagnostics, and is kept in the repository as an inspectable example artifact.
+
+`time_series_examples/` contains deterministic synthetic examples for:
+
+- spread half-life and Hurst/ADF/KPSS diagnostics via `generate_spread_report`
+- pair Engle-Granger cointegration and residual stationarity via `generate_pair_cointegration_report`

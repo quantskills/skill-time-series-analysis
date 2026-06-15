@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 import yaml
 
+import skill_time_series_analysis as ts
 from skill_time_series_analysis import (
     CointegrationAnalysis,
     DistributionDiagnostics,
@@ -20,6 +21,7 @@ from skill_time_series_analysis import (
     engle_granger_cointegration,
     half_life_of_mean_reversion,
     kde_analysis,
+    log_diff_diagnostics,
     qq_analysis,
     stationarity_diagnostics,
     ts_groupby_period,
@@ -46,11 +48,50 @@ def test_analyze_price_series_returns_pyramid_result() -> None:
     assert REMOVED_TREND_METRIC not in result.summary
     assert REMOVED_TREND_METRIC not in result.stationarity.columns
     assert {"window_size", "hurst", "trend_type"}.issubset(result.stationarity.columns)
+    assert list(result.log_diff["lag"]) == [1, 5, 10]
+    assert {"lag", "n_obs", "hurst", "adf_pvalue", "kpss_pvalue", "trend_type"}.issubset(
+        result.log_diff.columns
+    )
+    assert list(result.log_diff_kde["lag"]) == [1, 5, 10]
+    assert {"lag", "peak_height", "tail_feature", "skew_feature"}.issubset(
+        result.log_diff_kde.columns
+    )
+    assert list(result.log_diff_qq["lag"]) == [1, 5, 10]
+    assert {"lag", "kurtosis", "skewness", "qq_deviation"}.issubset(
+        result.log_diff_qq.columns
+    )
 
     markdown = result.to_markdown()
     assert markdown.index("## Summary") < markdown.index("## Evidence")
     assert "Distribution" in markdown
     assert "Stationarity" in markdown
+    assert "Log Diff" in markdown
+    assert "Log Diff KDE Diagnostics" in markdown
+    assert "Log Diff QQ Diagnostics" in markdown
+
+
+def test_log_diff_diagnostics_cover_default_lags() -> None:
+    diagnostics = log_diff_diagnostics(_price_series(220), windows=[60, 120])
+
+    assert list(diagnostics["lag"]) == [1, 5, 10]
+    assert diagnostics["label"].tolist() == ["Log diff 1", "Log diff 5", "Log diff 10"]
+    assert diagnostics["n_obs"].min() >= 200
+    assert {"tail_feature", "skew_feature", "qq_deviation"}.issubset(diagnostics.columns)
+    assert diagnostics["adf_pvalue"].notna().all()
+    assert diagnostics["kpss_pvalue"].notna().all()
+
+
+def test_removed_factor_api_is_not_public() -> None:
+    removed_names = [
+        "build_time_series_" + "factor_frame",
+        "ts_" + "momentum",
+        "ts_" + "volatility",
+        "ts_" + "trend_slope",
+        "ts_" + "mean_reversion_zscore",
+    ]
+
+    for name in removed_names:
+        assert not hasattr(ts, name), name
 
 
 def test_analyze_spread_reports_half_life_and_markdown() -> None:

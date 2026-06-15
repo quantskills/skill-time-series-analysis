@@ -7,12 +7,22 @@ It provides Python APIs for price-series diagnostics, spread analysis,
 Engle-Granger cointegration, and mean-reversion half-life, and it can generate
 Markdown reports that explain the conclusion first and then show the evidence.
 
+## Workflow
+
+1. The user asks for time-series analysis, and the agent first identifies the input type.
+2. For a single price series, call `generate_time_series_report` and analyze both the original price series and `Log diff 1/5/10`.
+3. For a spread or price difference, call `generate_spread_report`; it uses `analyze_spread` to measure half-life, Hurst, ADF, and KPSS.
+4. For two related series, call `generate_pair_cointegration_report`; it uses `analyze_pair_cointegration` to measure Engle-Granger cointegration plus residual stationarity.
+5. The report explains stationarity, memory, trend, and distribution shape in plain language, then suggests strategy and factor research directions.
+6. The output is structured Markdown plus PNG charts; the user reads conclusions first, then evidence and charts.
+
 ## Example Visualization And Summary
 
 The example below is generated from
 `reports/panda_data_futures/multi_symbol_futures_timeseries.md`. It uses real
 PandaData futures daily bars for `IF_DOMINANT.CFE`, `CU_DOMINANT.SHF`, and
-`I_DOMINANT.DCE`.
+`I_DOMINANT.DCE`. Each report analyzes both the original price series and
+`Log diff 1/5/10`.
 
 | symbol | n_obs | trend_type | tail | skew |
 | --- | ---: | --- | --- | --- |
@@ -25,43 +35,18 @@ Example conclusion for `IF_DOMINANT.CFE`:
 - Stationarity: ADF does not reject a unit root and KPSS rejects stationarity, so the latest window looks trend non-stationary.
 - Memory: Hurst is elevated, indicating persistence and directional continuation.
 - Trend: the latest window is classified as strong trend and trend non-stationary from the Hurst, ADF, and KPSS combination.
+- Log diff: the report checks 1-, 5-, and 10-period log-diff series for stationarity, memory, KDE, and QQ distribution shape.
 - Research directions: trend following, time-series momentum, breakout confirmation, trend-state filters, and tail-risk filters.
 
 ![IF_DOMINANT.CFE KDE](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_kde_dist.png)
 
 ![IF_DOMINANT.CFE QQ](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_qq_plot.png)
 
-`OHLCV bars` means a time-indexed `open/high/low/close/volume` table for one
-instrument. A `generic time-series factor` is a reusable research feature
-computed only from that instrument's own historical OHLCV bars; it is not a
-trading signal. `build_time_series_factor_frame` outputs:
+Spread and pair-cointegration reports are also included as inspectable Markdown
+examples:
 
-| Factor | Meaning | Typical Use |
-| --- | --- | --- |
-| `momentum` | Trailing lookback return | Trend and momentum research |
-| `volatility` | Rolling return volatility | Risk filters and position budgets |
-| `trend_slope` | Rolling log-price slope | Trend strength detection |
-| `mean_reversion_zscore` | Negative price z-score versus rolling mean | Mean-reversion and deviation repair research |
-
-## Workflow
-
-```mermaid
-flowchart TD
-    A["User asks for time-series analysis"] --> B["Agent identifies the input type"]
-    B --> C{"What is the input?"}
-    C -->|Single price series| D["Call generate_time_series_report"]
-    C -->|Spread / price difference| E["Call analyze_spread"]
-    C -->|Two related series| F["Call analyze_pair_cointegration"]
-    C -->|OHLCV bars| G["Call build_time_series_factor_frame"]
-    D --> H["Run KDE / QQ / Hurst / ADF / KPSS"]
-    E --> H
-    F --> H
-    G --> I["Build generic time-series factors"]
-    H --> J["Explain stationarity / memory / trend / distribution shape"]
-    J --> K["Suggest strategy and factor research directions"]
-    K --> L["Output structured Markdown and PNG charts"]
-    L --> M["User reads conclusions first, then evidence and charts"]
-```
+- Spread half-life report: `reports/time_series_examples/demo_spread/demo_spread_spread_report.md`
+- Pair cointegration report: `reports/time_series_examples/demo_pair/demo_pair_cointegration_report.md`
 
 ## Quick Start
 
@@ -81,6 +66,13 @@ report = generate_time_series_report(
     output_dir="reports/demo",
 )
 print(report.to_markdown())
+```
+
+```python
+from skill_time_series_analysis import generate_pair_cointegration_report, generate_spread_report
+
+spread_report = generate_spread_report(spread, series_name="demo_spread", output_dir="reports/demo_spread")
+pair_report = generate_pair_cointegration_report(y, x, pair_name="demo_pair", output_dir="reports/demo_pair")
 ```
 
 ## Real-Data Example Report
@@ -108,16 +100,18 @@ runtime Python package itself does not depend on PandaData.
 Use top-level APIs first:
 
 - `generate_time_series_report`
+- `generate_spread_report`
+- `generate_pair_cointegration_report`
 - `interpret_time_series_analysis`
 - `analyze_price_series`
 - `analyze_spread`
 - `analyze_pair_cointegration`
-- `build_time_series_factor_frame`
 
 Use diagnostics APIs when composing custom workflows:
 
 - `distribution_diagnostics`
 - `stationarity_diagnostics`
+- `log_diff_diagnostics`
 - `mean_reversion_diagnostics`
 - `cointegration_diagnostics`
 
@@ -126,7 +120,6 @@ Low-level helpers remain available for advanced use:
 - `kde_analysis`, `qq_analysis`, `ts_groupby_period`
 - `TimeSeriesAnalyzer`, `analysis_results_to_df`
 - `half_life_of_mean_reversion`, `engle_granger_cointegration`
-- `ts_momentum`, `ts_volatility`, `ts_trend_slope`, `ts_mean_reversion_zscore`
 
 ## Boundary
 

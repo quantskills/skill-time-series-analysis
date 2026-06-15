@@ -19,9 +19,12 @@ trigger:
     - 自动时序检测报告
 instructions: |
   For a user-facing single-series request, call generate_time_series_report
-  first and return its Markdown. Use analyze_price_series, analyze_spread, or
-  analyze_pair_cointegration for custom workflows. Report conclusions before
-  evidence, and describe strategy/factor output as research directions only.
+  first and return its Markdown. For spread requests, call generate_spread_report.
+  For two related series, call generate_pair_cointegration_report. Use
+  analyze_price_series, analyze_spread, or analyze_pair_cointegration for custom
+  workflows. Single-series reports should include original-series evidence and
+  Log diff 1/5/10 diagnostics. Report conclusions before evidence, and describe
+  strategy/factor output as research directions only.
 interface:
   display_name: "Time Series Analysis"
   short_description: "Price-series diagnostics and stationarity checks"

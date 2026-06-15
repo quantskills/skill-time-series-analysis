@@ -9,12 +9,20 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from skill_time_series_analysis.analysis import analyze_price_series
+from skill_time_series_analysis.analysis import (
+    analyze_pair_cointegration,
+    analyze_price_series,
+    analyze_spread,
+)
 from skill_time_series_analysis.types import (
+    AnalysisReport,
+    CointegrationAnalysis,
+    MeanReversionAnalysis,
     TimeSeriesAnalysis,
     TimeSeriesInterpretation,
     TimeSeriesReport,
     _frame_markdown,
+    _summary_markdown,
 )
 
 
@@ -277,6 +285,15 @@ def _build_report_markdown(
         "## 检测证据\n\n"
         "### Stationarity / Hurst / ADF / KPSS\n\n"
         f"{_frame_markdown(analysis.stationarity, include_index=False)}\n\n"
+        "## Log Diff 分析\n\n"
+        "除原始价格序列外，报告还分析 `log(price).diff(lag)` 后的时间序列；"
+        "这里以 Log diff 1/5/10 为例观察不同持有尺度上的平稳性、记忆性和分布形态。\n\n"
+        f"{_frame_markdown(analysis.log_diff, include_index=False)}\n\n"
+        "### Log Diff KDE / QQ\n\n"
+        "#### Log Diff KDE Diagnostics\n\n"
+        f"{_frame_markdown(analysis.log_diff_kde, include_index=False)}\n\n"
+        "#### Log Diff QQ Diagnostics\n\n"
+        f"{_frame_markdown(analysis.log_diff_qq, include_index=False)}\n\n"
         "### KDE / QQ\n\n"
         "#### KDE Diagnostics\n\n"
         f"{_frame_markdown(analysis.distribution.kde)}\n\n"
@@ -286,6 +303,198 @@ def _build_report_markdown(
         f"{chr(10).join(chart_lines)}\n"
         "## 注意事项\n\n"
         f"{_bullets(interpretation.caveats)}\n"
+    )
+
+
+def _build_spread_report_markdown(
+    *,
+    title: str,
+    analysis: MeanReversionAnalysis,
+    plot_paths: dict[str, str],
+    markdown_dir: Path | None,
+) -> str:
+    half_life = _as_float(analysis.summary.get("half_life_bars"))
+    is_mean_reverting = bool(analysis.summary.get("is_mean_reverting"))
+    latest = analysis.stationarity.iloc[-1].to_dict() if not analysis.stationarity.empty else {}
+    hurst = _as_float(latest.get("hurst"))
+    adf_pvalue = _as_float(latest.get("adf_pvalue"))
+    kpss_pvalue = _as_float(latest.get("kpss_pvalue"))
+
+    if is_mean_reverting:
+        one_sentence = f"该 spread 的半衰期约为 {half_life:.2f} bars，优先作为价差均值回复投研样本。"
+    else:
+        one_sentence = "该 spread 暂未显示稳定均值回复证据，应先复核构造方式和样本窗口。"
+
+    stationarity_text = (
+        f"最新窗口 Hurst={hurst:.4f}，ADF p-value={adf_pvalue:.4f}，"
+        f"KPSS p-value={kpss_pvalue:.4f}。这些证据用于判断价差是否接近平稳或均值回复过程。"
+    )
+    chart_lines: list[str] = []
+    if plot_paths:
+        if "kde" in plot_paths:
+            chart_lines.extend(["### KDE", "", f"![KDE]({_relative_link(plot_paths['kde'], markdown_dir)})", ""])
+        if "qq" in plot_paths:
+            chart_lines.extend(["### QQ", "", f"![QQ]({_relative_link(plot_paths['qq'], markdown_dir)})", ""])
+    else:
+        chart_lines = ["未生成图表。", ""]
+
+    distribution = analysis.distribution
+    distribution_section = ""
+    if distribution is not None:
+        distribution_section = (
+            "### KDE / QQ\n\n"
+            "#### KDE Diagnostics\n\n"
+            f"{_frame_markdown(distribution.kde)}\n\n"
+            "#### QQ Diagnostics\n\n"
+            f"{_frame_markdown(distribution.qq)}\n\n"
+        )
+
+    return (
+        f"# {title}\n\n"
+        "## 一句话结论\n\n"
+        f"{one_sentence}\n\n"
+        "## Spread / 价差检测结果\n\n"
+        "### 半衰期\n\n"
+        f"{_summary_markdown(analysis.half_life)}\n\n"
+        "### Hurst / ADF / KPSS\n\n"
+        f"{stationarity_text}\n\n"
+        f"{_frame_markdown(analysis.stationarity, include_index=False)}\n\n"
+        "## 量化投研建议\n\n"
+        "- 适合进一步研究价差 z-score、残差偏离修复、半衰期驱动的持有周期和风险过滤等投研方向。\n"
+        "- 检测结果仅用于筛选研究方向，不能直接作为下单依据。\n\n"
+        "## 检测证据\n\n"
+        f"{distribution_section}"
+        "## 图表\n\n"
+        f"{chr(10).join(chart_lines)}\n"
+        "## 注意事项\n\n"
+        "- spread 构造方式会显著影响半衰期、Hurst、ADF 和 KPSS 结论。\n"
+        "- 样本窗口变化可能改变均值回复判断，实盘前需要独立样本复核。\n"
+    )
+
+
+def _build_pair_cointegration_report_markdown(
+    *,
+    title: str,
+    analysis: CointegrationAnalysis,
+) -> str:
+    alpha = _as_float(analysis.summary.get("alpha"))
+    beta = _as_float(analysis.summary.get("beta"))
+    adf_pvalue = _as_float(analysis.summary.get("adf_pvalue"))
+    is_cointegrated = bool(analysis.summary.get("is_cointegrated"))
+    if is_cointegrated:
+        one_sentence = (
+            f"Engle-Granger 检测显示残差 ADF p-value={adf_pvalue:.4f}，"
+            "两条序列在当前样本中存在协整证据。"
+        )
+    else:
+        one_sentence = (
+            f"Engle-Granger 检测显示残差 ADF p-value={adf_pvalue:.4f}，"
+            "当前样本中的协整证据不足。"
+        )
+
+    residual_summary = {
+        "residual_mean": float(analysis.residuals.mean()),
+        "residual_std": float(analysis.residuals.std(ddof=0)),
+        "residual_min": float(analysis.residuals.min()),
+        "residual_max": float(analysis.residuals.max()),
+    }
+    return (
+        f"# {title}\n\n"
+        "## 一句话结论\n\n"
+        f"{one_sentence}\n\n"
+        "## Pair / 双序列协整检测结果\n\n"
+        "### Engle-Granger 回归\n\n"
+        f"- alpha: `{alpha:.4f}`\n"
+        f"- beta: `{beta:.4f}`\n"
+        f"- is_cointegrated: `{is_cointegrated}`\n\n"
+        "### 残差平稳性\n\n"
+        f"残差 ADF p-value={adf_pvalue:.4f}，用于判断两条序列线性组合后的残差是否平稳。\n\n"
+        f"{_summary_markdown(analysis.evidence)}\n\n"
+        "### Residual Summary\n\n"
+        f"{_summary_markdown(residual_summary)}\n\n"
+        "## 量化投研建议\n\n"
+        "- 适合进一步研究配对价差、残差 z-score、协整关系稳定性、滚动 beta 和残差风险过滤等投研方向。\n"
+        "- 协整检测只是研究入口，不是买卖建议，也不是执行依据。\n\n"
+        "## 注意事项\n\n"
+        "- Engle-Granger 对样本区间、回归方向和结构变化敏感。\n"
+        "- 后续研究应检查滚动窗口下 alpha、beta 和残差 ADF 是否稳定。\n"
+    )
+
+
+def generate_spread_report(
+    spread: pd.Series,
+    *,
+    series_name: str = "spread",
+    title: str | None = None,
+    windows: list[int] | None = None,
+    output_dir: str | Path | None = None,
+    include_plots: bool = True,
+    language: str = "zh",
+) -> AnalysisReport:
+    """Run spread diagnostics and optionally write a Markdown report."""
+
+    if language != "zh":
+        raise ValueError("only language='zh' is supported in this version")
+    output_path = Path(output_dir) if output_dir is not None else None
+    if output_path is not None:
+        output_path.mkdir(parents=True, exist_ok=True)
+    analysis = analyze_spread(
+        spread,
+        windows=windows,
+        plot=False,
+        output_dir=output_path if include_plots else None,
+    )
+    plot_paths = dict(analysis.distribution.plot_paths if include_plots and analysis.distribution else {})
+    report_title = title or f"{series_name} 价差检测报告"
+    markdown_path = None
+    if output_path is not None:
+        markdown_path = output_path / f"{_safe_file_stem(series_name)}_spread_report.md"
+    markdown = _build_spread_report_markdown(
+        title=report_title,
+        analysis=analysis,
+        plot_paths=plot_paths,
+        markdown_dir=output_path,
+    )
+    if markdown_path is not None:
+        markdown_path.write_text(markdown, encoding="utf-8")
+    return AnalysisReport(
+        analysis=analysis,
+        markdown=markdown,
+        markdown_path=markdown_path,
+        plot_paths=plot_paths,
+    )
+
+
+def generate_pair_cointegration_report(
+    y: pd.Series,
+    x: pd.Series,
+    *,
+    pair_name: str = "pair",
+    title: str | None = None,
+    significance: float = 0.05,
+    output_dir: str | Path | None = None,
+    language: str = "zh",
+) -> AnalysisReport:
+    """Run Engle-Granger diagnostics and optionally write a Markdown report."""
+
+    if language != "zh":
+        raise ValueError("only language='zh' is supported in this version")
+    output_path = Path(output_dir) if output_dir is not None else None
+    if output_path is not None:
+        output_path.mkdir(parents=True, exist_ok=True)
+    analysis = analyze_pair_cointegration(y, x, significance=significance)
+    report_title = title or f"{pair_name} 协整检测报告"
+    markdown_path = None
+    if output_path is not None:
+        markdown_path = output_path / f"{_safe_file_stem(pair_name)}_cointegration_report.md"
+    markdown = _build_pair_cointegration_report_markdown(title=report_title, analysis=analysis)
+    if markdown_path is not None:
+        markdown_path.write_text(markdown, encoding="utf-8")
+    return AnalysisReport(
+        analysis=analysis,
+        markdown=markdown,
+        markdown_path=markdown_path,
+        plot_paths={},
     )
 
 
@@ -338,6 +547,8 @@ def generate_time_series_report(
 
 
 __all__ = [
+    "generate_pair_cointegration_report",
+    "generate_spread_report",
     "generate_time_series_report",
     "interpret_time_series_analysis",
 ]

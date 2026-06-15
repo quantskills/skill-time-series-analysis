@@ -106,6 +106,79 @@ def _standard_log_returns(price: pd.Series, lag: int) -> pd.Series:
     return (returns - returns.mean()) / std
 
 
+def _standardized_numeric_values(series: pd.Series) -> pd.Series:
+    values = _clean_series(series).replace([np.inf, -np.inf], np.nan).dropna()
+    std = values.std(ddof=0)
+    if len(values) == 0 or not np.isfinite(std) or std == 0:
+        return pd.Series(dtype=float)
+    return (values - values.mean()) / std
+
+
+def _kde_features_for_values(series: pd.Series) -> dict[str, Any]:
+    signal, stats = _import_signal_stats()
+    standardized = _standardized_numeric_values(series)
+    if len(standardized) < 3:
+        return {
+            "peak_height": np.nan,
+            "peak_position": np.nan,
+            "num_peaks": 0,
+            "tail_feature": "insufficient",
+            "skew_feature": "insufficient",
+            "statistical_kurtosis": np.nan,
+            "statistical_skewness": np.nan,
+        }
+
+    kde = stats.gaussian_kde(standardized)
+    x_grid = np.linspace(-5, 5, 1000)
+    density = kde(x_grid)
+    peak_index = int(np.argmax(density))
+    peaks, _ = signal.find_peaks(density, height=0.01)
+    stat_kurtosis = float(stats.kurtosis(standardized))
+    stat_skewness = float(stats.skew(standardized))
+    return {
+        "peak_height": float(density[peak_index]),
+        "peak_position": float(x_grid[peak_index]),
+        "num_peaks": int(len(peaks)),
+        "tail_feature": "fat_tail" if stat_kurtosis > 1 else "near_normal",
+        "skew_feature": (
+            "right_skew" if stat_skewness > 0.2 else "left_skew" if stat_skewness < -0.2 else "symmetric"
+        ),
+        "statistical_kurtosis": stat_kurtosis,
+        "statistical_skewness": stat_skewness,
+    }
+
+
+def _qq_features_for_values(series: pd.Series) -> dict[str, float]:
+    _, stats = _import_signal_stats()
+    standardized = _standardized_numeric_values(series)
+    if len(standardized) < 3:
+        return {
+            "kurtosis": np.nan,
+            "skewness": np.nan,
+            "qq_deviation": np.nan,
+        }
+    ordered_vals = np.sort(standardized.to_numpy())
+    probabilities = (np.arange(1, len(ordered_vals) + 1) - 0.5) / len(ordered_vals)
+    theoretical_quantiles = stats.norm.ppf(probabilities)
+    return {
+        "kurtosis": float(stats.kurtosis(standardized)),
+        "skewness": float(stats.skew(standardized)),
+        "qq_deviation": float(np.sqrt(np.mean((theoretical_quantiles - ordered_vals) ** 2))),
+    }
+
+
+def _simple_distribution_features(series: pd.Series) -> dict[str, Any]:
+    kde = _kde_features_for_values(series)
+    qq = _qq_features_for_values(series)
+    return {
+        "tail_feature": kde["tail_feature"],
+        "skew_feature": kde["skew_feature"],
+        "kurtosis": qq["kurtosis"],
+        "skewness": qq["skewness"],
+        "qq_deviation": qq["qq_deviation"],
+    }
+
+
 def kde_analysis(
     price: pd.Series,
     plot_title: str = "",
@@ -345,16 +418,19 @@ class TimeSeriesAnalyzer:
         if max_lag < min_lag:
             return np.nan
 
-        log_returns = np.log(s.where(s > 0)).diff().dropna()
-        if len(log_returns) <= max_lag:
+        if (s > 0).all():
+            hurst_values = np.log(s).diff().dropna()
+        else:
+            hurst_values = s.replace([np.inf, -np.inf], np.nan).dropna()
+        if len(hurst_values) <= max_lag:
             return np.nan
 
         lag_used: list[int] = []
         rs_values: list[float] = []
         for lag in range(min_lag, max_lag + 1):
             rs = []
-            for i in range(len(log_returns) - lag + 1):
-                segment = log_returns.iloc[i : i + lag]
+            for i in range(len(hurst_values) - lag + 1):
+                segment = hurst_values.iloc[i : i + lag]
                 deviations = segment - segment.mean()
                 cumulative = deviations.cumsum()
                 range_ = cumulative.max() - cumulative.min()
@@ -556,11 +632,97 @@ def analyze_time_series_yearly(
     return pd.concat(all_results, ignore_index=True)
 
 
+def _default_log_diff_lags(lags: Sequence[int] | None = None) -> list[int]:
+    if lags is None:
+        return [1, 5, 10]
+    cleaned = sorted({int(lag) for lag in lags})
+    if not cleaned or min(cleaned) < 1:
+        raise ValueError("log_diff_lags must contain positive integers")
+    return cleaned
+
+
+def _valid_stationarity_windows(windows: Sequence[int] | None, length: int) -> list[int]:
+    valid = [window for window in _default_windows(windows) if window <= length]
+    if valid:
+        return valid
+    if length >= 10:
+        return [length]
+    return []
+
+
+def _log_diff(price: pd.Series, lag: int) -> pd.Series:
+    price = _clean_series(price, "price")
+    if (price <= 0).any():
+        raise ValueError("log diff diagnostics require strictly positive price values")
+    return np.log(price).diff(lag).replace([np.inf, -np.inf], np.nan).dropna()
+
+
+def _log_diff_distribution_diagnostics(
+    price: pd.Series,
+    *,
+    lags: Sequence[int] | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    kde_rows: list[dict[str, Any]] = []
+    qq_rows: list[dict[str, Any]] = []
+    for lag in _default_log_diff_lags(lags):
+        transformed = _log_diff(price, lag)
+        base = {
+            "lag": lag,
+            "label": f"Log diff {lag}",
+            "n_obs": int(len(transformed)),
+        }
+        kde_rows.append({**base, **_kde_features_for_values(transformed)})
+        qq_rows.append({**base, **_qq_features_for_values(transformed)})
+    return pd.DataFrame(kde_rows), pd.DataFrame(qq_rows)
+
+
+def log_diff_diagnostics(
+    price: pd.Series,
+    *,
+    lags: Sequence[int] | None = None,
+    windows: Sequence[int] | None = None,
+) -> pd.DataFrame:
+    """Analyze ``log(price).diff(lag)`` series for the requested lags."""
+
+    price = _clean_series(price, "price")
+    log_diff_kde, log_diff_qq = _log_diff_distribution_diagnostics(price, lags=lags)
+    rows: list[dict[str, Any]] = []
+    for lag in _default_log_diff_lags(lags):
+        transformed = _log_diff(price, lag)
+        kde = log_diff_kde.loc[log_diff_kde["lag"] == lag].iloc[0].to_dict()
+        qq = log_diff_qq.loc[log_diff_qq["lag"] == lag].iloc[0].to_dict()
+        valid_windows = _valid_stationarity_windows(windows, len(transformed))
+        stationarity = (
+            stationarity_diagnostics(transformed, windows=valid_windows)
+            if valid_windows
+            else pd.DataFrame()
+        )
+        latest = stationarity.iloc[-1].to_dict() if not stationarity.empty else {}
+        rows.append(
+            {
+                "lag": lag,
+                "label": f"Log diff {lag}",
+                "n_obs": int(len(transformed)),
+                "hurst": latest.get("hurst", np.nan),
+                "adf_pvalue": latest.get("adf_pvalue", np.nan),
+                "kpss_pvalue": latest.get("kpss_pvalue", np.nan),
+                "trend_type": latest.get("trend_type", "insufficient data"),
+                "tail_feature": kde["tail_feature"],
+                "skew_feature": kde["skew_feature"],
+                "kurtosis": qq["kurtosis"],
+                "skewness": qq["skewness"],
+                "qq_deviation": qq["qq_deviation"],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def analyze_price_series(
     price: pd.Series,
     *,
     windows: Sequence[int] | None = None,
     lags: Sequence[int] | None = None,
+    log_diff_lags: Sequence[int] | None = None,
     plot: bool = False,
     output_dir: str | Path | None = None,
 ) -> TimeSeriesAnalysis:
@@ -569,6 +731,8 @@ def analyze_price_series(
     price = _clean_series(price, "price")
     distribution = distribution_diagnostics(price, lags=lags, plot=plot, output_dir=output_dir)
     stationarity = stationarity_diagnostics(price, windows=windows)
+    log_diff = log_diff_diagnostics(price, lags=log_diff_lags, windows=windows)
+    log_diff_kde, log_diff_qq = _log_diff_distribution_diagnostics(price, lags=log_diff_lags)
     latest = stationarity.iloc[-1].to_dict() if not stationarity.empty else {}
     summary = {
         "n_obs": int(len(price)),
@@ -582,6 +746,9 @@ def analyze_price_series(
         summary=summary,
         distribution=distribution,
         stationarity=stationarity,
+        log_diff=log_diff,
+        log_diff_kde=log_diff_kde,
+        log_diff_qq=log_diff_qq,
     )
 
 
@@ -812,6 +979,7 @@ __all__ = [
     "ensure_dir_and_get_path",
     "half_life_of_mean_reversion",
     "kde_analysis",
+    "log_diff_diagnostics",
     "mean_reversion_diagnostics",
     "qq_analysis",
     "stationarity_diagnostics",

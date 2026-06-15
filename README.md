@@ -6,11 +6,21 @@
 分析价格序列、spread、双序列协整和均值回复半衰期，也可以自动生成先给结论、再展开
 证据的 Markdown 检测报告。
 
+## 工作流
+
+1. 用户提出时序分析请求，agent 先识别输入对象。
+2. 如果输入是单条价格序列，调用 `generate_time_series_report`，同时分析原始价格序列和 `Log diff 1/5/10`。
+3. 如果输入是 spread 或价差，报告入口调用 `generate_spread_report`，内部用 `analyze_spread` 检测半衰期、Hurst、ADF 和 KPSS。
+4. 如果输入是两条相关序列，报告入口调用 `generate_pair_cointegration_report`，内部用 `analyze_pair_cointegration` 检测 Engle-Granger 协整和残差平稳性。
+5. 报告用人话解释平稳性、记忆性、趋势性和分布形态，并给出策略与因子投研方向。
+6. 输出结构化 Markdown 和 PNG 图；用户先读结论，再检查证据和图表。
+
 ## 案例可视化与总结
 
 下面的案例来自 `reports/panda_data_futures/multi_symbol_futures_timeseries.md`，
 使用 PandaData 真实期货日线，对 `IF_DOMINANT.CFE`、`CU_DOMINANT.SHF` 和
-`I_DOMINANT.DCE` 生成自动时序检测报告。
+`I_DOMINANT.DCE` 生成自动时序检测报告。报告同时分析原始价格序列和
+`Log diff 1/5/10`。
 
 | symbol | n_obs | trend_type | tail | skew |
 | --- | ---: | --- | --- | --- |
@@ -23,42 +33,17 @@
 - 平稳性分析：ADF 未拒绝单位根、KPSS 拒绝平稳假设，整体更像趋势非平稳序列。
 - 记忆性分析：Hurst 较高，显示较强持续性，价格变化更容易沿原方向延续。
 - 趋势性分析：基于 Hurst、ADF 和 KPSS 的组合判断，最新窗口属于强趋势、趋势非平稳状态。
+- Log diff 分析：报告会对 1、5、10 个周期的 log diff 序列继续检测平稳性、记忆性、KDE 和 QQ 分布形态。
 - 投研方向：趋势跟随、时间序列动量、突破确认、趋势状态识别、尾部风险过滤。
 
 ![IF_DOMINANT.CFE KDE](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_kde_dist.png)
 
 ![IF_DOMINANT.CFE QQ](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_qq_plot.png)
 
-这里的 `OHLCV bars` 指单个品种按时间排列的 `open/high/low/close/volume`
-行情表。`generic 时序因子` 指只使用该品种自身历史 OHLCV 计算出来的通用研究特征，
-不是交易信号。例如 `build_time_series_factor_frame` 会生成：
+价差和双序列协整也有可审阅的 Markdown report 示例：
 
-| 因子 | 含义 | 典型用途 |
-| --- | --- | --- |
-| `momentum` | 过去 lookback 周期收益 | 趋势/动量研究 |
-| `volatility` | 滚动收益波动率 | 风险过滤、仓位预算 |
-| `trend_slope` | 滚动 log price 斜率 | 趋势强度识别 |
-| `mean_reversion_zscore` | 价格相对滚动均值的反向 z-score | 均值回复/偏离修复研究 |
-
-## 工作流
-
-```mermaid
-flowchart TD
-    A["用户提出时序分析请求"] --> B["Agent 识别对象类型"]
-    B --> C{"输入是什么？"}
-    C -->|单条价格序列| D["调用 generate_time_series_report"]
-    C -->|spread / 价差| E["调用 analyze_spread"]
-    C -->|两条相关序列| F["调用 analyze_pair_cointegration"]
-    C -->|OHLCV bars| G["调用 build_time_series_factor_frame"]
-    D --> H["自动运行 KDE / QQ / Hurst / ADF / KPSS"]
-    E --> H
-    F --> H
-    G --> I["生成 generic 时序因子"]
-    H --> J["解释平稳性 / 记忆性 / 趋势性 / 分布形态"]
-    J --> K["给出策略与因子投研方向"]
-    K --> L["输出结构化 Markdown 和 PNG 图"]
-    L --> M["用户先读结论，再检查证据和图表"]
-```
+- Spread / 价差半衰期报告：`reports/time_series_examples/demo_spread/demo_spread_spread_report.md`
+- Pair / 双序列协整报告：`reports/time_series_examples/demo_pair/demo_pair_cointegration_report.md`
 
 ## 快速开始
 
@@ -78,6 +63,13 @@ report = generate_time_series_report(
     output_dir="reports/demo",
 )
 print(report.to_markdown())
+```
+
+```python
+from skill_time_series_analysis import generate_pair_cointegration_report, generate_spread_report
+
+spread_report = generate_spread_report(spread, series_name="demo_spread", output_dir="reports/demo_spread")
+pair_report = generate_pair_cointegration_report(y, x, pair_name="demo_pair", output_dir="reports/demo_pair")
 ```
 
 ## 真实数据示例报告
@@ -104,16 +96,18 @@ PANDA_DATA_ENV_FILE=/path/to/.env \
 先用高层主入口：
 
 - `generate_time_series_report`
+- `generate_spread_report`
+- `generate_pair_cointegration_report`
 - `interpret_time_series_analysis`
 - `analyze_price_series`
 - `analyze_spread`
 - `analyze_pair_cointegration`
-- `build_time_series_factor_frame`
 
 需要自定义工作流时，再用可组合诊断 API：
 
 - `distribution_diagnostics`
 - `stationarity_diagnostics`
+- `log_diff_diagnostics`
 - `mean_reversion_diagnostics`
 - `cointegration_diagnostics`
 
@@ -122,7 +116,6 @@ PANDA_DATA_ENV_FILE=/path/to/.env \
 - `kde_analysis`, `qq_analysis`, `ts_groupby_period`
 - `TimeSeriesAnalyzer`, `analysis_results_to_df`
 - `half_life_of_mean_reversion`, `engle_granger_cointegration`
-- `ts_momentum`, `ts_volatility`, `ts_trend_slope`, `ts_mean_reversion_zscore`
 
 ## 边界
 

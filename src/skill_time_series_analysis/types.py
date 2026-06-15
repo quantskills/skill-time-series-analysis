@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +80,9 @@ class TimeSeriesAnalysis:
     summary: dict[str, Any]
     distribution: DistributionDiagnostics
     stationarity: pd.DataFrame
+    log_diff: pd.DataFrame = field(default_factory=pd.DataFrame)
+    log_diff_kde: pd.DataFrame = field(default_factory=pd.DataFrame)
+    log_diff_qq: pd.DataFrame = field(default_factory=pd.DataFrame)
 
     def to_markdown(self) -> str:
         return (
@@ -89,7 +92,13 @@ class TimeSeriesAnalysis:
             "### Distribution\n\n"
             f"{_frame_markdown(self.distribution.kde)}\n\n"
             "### Stationarity\n\n"
-            f"{_frame_markdown(self.stationarity, include_index=False)}\n"
+            f"{_frame_markdown(self.stationarity, include_index=False)}\n\n"
+            "### Log Diff\n\n"
+            f"{_frame_markdown(self.log_diff, include_index=False)}\n\n"
+            "### Log Diff KDE Diagnostics\n\n"
+            f"{_frame_markdown(self.log_diff_kde, include_index=False)}\n\n"
+            "### Log Diff QQ Diagnostics\n\n"
+            f"{_frame_markdown(self.log_diff_qq, include_index=False)}\n"
         )
 
 
@@ -178,7 +187,21 @@ class TimeSeriesReport:
         return self.markdown
 
 
+@dataclass
+class AnalysisReport:
+    """Structured Markdown report for spread and pair diagnostics."""
+
+    analysis: Any
+    markdown: str
+    markdown_path: Path | None
+    plot_paths: dict[str, str] = field(default_factory=dict)
+
+    def to_markdown(self) -> str:
+        return self.markdown
+
+
 __all__ = [
+    "AnalysisReport",
     "CointegrationAnalysis",
     "DistributionDiagnostics",
     "MeanReversionAnalysis",
