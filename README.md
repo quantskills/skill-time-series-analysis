@@ -8,12 +8,26 @@
 
 ## 工作流
 
-1. 用户提出时序分析请求，agent 先识别输入对象。
-2. 如果输入是单条价格序列，调用 `generate_time_series_report`，同时分析原始价格序列和 `Log diff 1/5/10`。
-3. 如果输入是 spread 或价差，报告入口调用 `generate_spread_report`，内部用 `analyze_spread` 检测半衰期、Hurst、ADF 和 KPSS。
-4. 如果输入是两条相关序列，报告入口调用 `generate_pair_cointegration_report`，内部用 `analyze_pair_cointegration` 检测 Engle-Granger 协整和残差平稳性。
-5. 报告用人话解释平稳性、记忆性、趋势性和分布形态，并给出策略与因子投研方向。
-6. 输出结构化 Markdown 和 PNG 图；用户先读结论，再检查证据和图表。
+```mermaid
+flowchart TD
+    A["用户提出时序分析请求"] --> B["Agent 识别输入类型"]
+    B --> C{"输入类型"}
+    C --> D["单条价格序列"]
+    C --> E["Spread 或价差"]
+    C --> F["两条相关序列"]
+    D --> G["generate_time_series_report"]
+    G --> H["分析原始序列和 Log diff 1/5/10"]
+    E --> I["generate_spread_report"]
+    I --> J["analyze_spread: 半衰期 Hurst ADF KPSS"]
+    F --> K["generate_pair_cointegration_report"]
+    K --> L["analyze_pair_cointegration: Engle-Granger 和残差平稳性"]
+    H --> M["解释平稳性 记忆性 趋势性 分布形态"]
+    J --> M
+    L --> M
+    M --> N["给出策略和因子投研方向"]
+    N --> O["输出 Markdown 和 PNG 图"]
+    O --> P["用户先读结论 再检查证据"]
+```
 
 ## 案例可视化与总结
 

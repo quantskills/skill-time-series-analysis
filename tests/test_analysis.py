@@ -18,12 +18,19 @@ from skill_time_series_analysis import (
     analyze_pair_cointegration,
     analyze_price_series,
     analyze_spread,
+    analyze_time_series,
+    analyze_time_series_yearly,
+    cointegration_diagnostics,
+    distribution_diagnostics,
     engle_granger_cointegration,
+    ensure_dir_and_get_path,
     half_life_of_mean_reversion,
     kde_analysis,
     log_diff_diagnostics,
+    mean_reversion_diagnostics,
     qq_analysis,
     stationarity_diagnostics,
+    ts_analysis,
     ts_groupby_period,
 )
 
@@ -81,6 +88,23 @@ def test_log_diff_diagnostics_cover_default_lags() -> None:
     assert diagnostics["kpss_pvalue"].notna().all()
 
 
+def test_log_diff_diagnostics_rejects_invalid_inputs_and_handles_short_windows() -> None:
+    with pytest.raises(ValueError, match="strictly positive"):
+        log_diff_diagnostics(pd.Series([100.0, 101.0, 0.0, 102.0]), lags=[1])
+
+    with pytest.raises(ValueError, match="positive integers"):
+        log_diff_diagnostics(_price_series(40), lags=[0])
+
+    diagnostics = log_diff_diagnostics(_price_series(12), lags=[10], windows=[60, 120])
+
+    assert diagnostics.loc[0, "label"] == "Log diff 10"
+    assert diagnostics.loc[0, "n_obs"] == 2
+    assert diagnostics.loc[0, "trend_type"] == "insufficient data"
+    assert pd.isna(diagnostics.loc[0, "hurst"])
+    assert pd.isna(diagnostics.loc[0, "adf_pvalue"])
+    assert pd.isna(diagnostics.loc[0, "kpss_pvalue"])
+
+
 def test_removed_factor_api_is_not_public() -> None:
     removed_names = [
         "build_time_series_" + "factor_frame",
@@ -132,6 +156,28 @@ def test_distribution_helpers_return_kde_and_qq_fields() -> None:
     assert {"kurtosis", "skewness", "qq_deviation"}.issubset(qq[1])
 
 
+def test_distribution_diagnostics_returns_structured_result_and_plots(tmp_path: Path) -> None:
+    diagnostics = distribution_diagnostics(
+        _price_series(140),
+        lags=[1, 5],
+        output_dir=tmp_path,
+    )
+
+    assert isinstance(diagnostics, DistributionDiagnostics)
+    assert diagnostics.summary["n_obs"] == 140
+    assert diagnostics.summary["lags"] == "1,5"
+    assert list(diagnostics.kde.index) == [1, 5]
+    assert list(diagnostics.qq.index) == [1, 5]
+    assert set(diagnostics.plot_paths) == {"kde", "qq"}
+    assert Path(diagnostics.plot_paths["kde"]).exists()
+    assert Path(diagnostics.plot_paths["qq"]).exists()
+
+    markdown = diagnostics.to_markdown()
+    assert markdown.index("## Summary") < markdown.index("## Evidence")
+    assert "### KDE Diagnostics" in markdown
+    assert "### QQ Diagnostics" in markdown
+
+
 def test_stationarity_helpers_cover_hurst_adf_and_kpss() -> None:
     price = _price_series(220)
     analyzer = TimeSeriesAnalyzer(price)
@@ -150,6 +196,50 @@ def test_stationarity_helpers_cover_hurst_adf_and_kpss() -> None:
     )
 
 
+def test_windowed_time_series_wrappers_return_expected_frames(tmp_path: Path) -> None:
+    price = _price_series(180)
+
+    frame = analyze_time_series(price, windows=[40, 80], display_results=True)
+    assert list(frame["window_size"]) == [40, 80]
+    assert {"hurst", "adf_pvalue", "kpss_pvalue", "trend_type"}.issubset(frame.columns)
+
+    yearly = pd.DataFrame(
+        {
+            "datetime": pd.date_range("2023-01-01", periods=180, freq="D"),
+            "close": _price_series(180).to_numpy(),
+        }
+    )
+    csv_path = tmp_path / "yearly.csv"
+    yearly.to_csv(csv_path, index=False)
+
+    yearly_result = analyze_time_series_yearly(str(csv_path), windows=[40, 80])
+
+    assert set(yearly_result["year"]) == {2023}
+    assert {"year", "window_size", "hurst", "adf_pvalue", "kpss_pvalue"}.issubset(
+        yearly_result.columns
+    )
+
+
+def test_path_and_ts_analysis_helpers_write_outputs(tmp_path: Path) -> None:
+    suffixed = ensure_dir_and_get_path(tmp_path / "nested" / "summary.png", "_kde.png")
+    assert suffixed == str(tmp_path / "nested" / "summary_kde.png")
+    assert (tmp_path / "nested").exists()
+
+    fig, ax = ts_analysis(
+        _price_series(120),
+        plot_title="Demo",
+        plot_path=tmp_path / "series.png",
+        show=False,
+        save_csv=True,
+    )
+
+    assert fig is not None
+    assert ax is not None
+    assert (tmp_path / "series_kde.png").exists()
+    assert (tmp_path / "series_kde.csv").exists()
+    fig.clf()
+
+
 def test_engle_granger_cointegration_helper_returns_residual_adf() -> None:
     x = _price_series(100)
     y = 2.0 * x + 3.0
@@ -160,6 +250,27 @@ def test_engle_granger_cointegration_helper_returns_residual_adf() -> None:
     assert result["beta"] == pytest.approx(2.0, rel=1e-6)
     assert result["adf_pvalue"] <= 0.05
     assert len(result["residuals"]) == 100
+
+
+def test_composable_diagnostic_helpers_return_expected_structures() -> None:
+    spread = pd.Series(
+        [(-0.8) ** i for i in range(80)],
+        index=pd.date_range("2024-01-01", periods=80),
+    )
+    mean_reversion = mean_reversion_diagnostics(spread)
+
+    assert mean_reversion["lambda"] < 0
+    assert mean_reversion["is_mean_reverting"] is True
+    assert mean_reversion["half_life_bars"] > 0
+
+    x = _price_series(100)
+    y = 1.8 * x + 4.0
+    cointegration = cointegration_diagnostics(y, x, significance=0.1)
+
+    assert cointegration["alpha"] == pytest.approx(4.0, rel=1e-6)
+    assert cointegration["beta"] == pytest.approx(1.8, rel=1e-6)
+    assert cointegration["is_cointegrated"] is True
+    assert len(cointegration["residuals"]) == 100
 
 
 def test_ts_groupby_period_writes_png_and_csv(tmp_path: Path) -> None:

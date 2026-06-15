@@ -4,9 +4,14 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from skill_time_series_analysis import (
     AnalysisReport,
+    CointegrationAnalysis,
+    DistributionDiagnostics,
+    MeanReversionAnalysis,
+    TimeSeriesAnalysis,
     TimeSeriesInterpretation,
     TimeSeriesReport,
     analyze_price_series,
@@ -79,6 +84,82 @@ def test_interpret_time_series_analysis_handles_weak_or_mean_reverting_series() 
     assert "投研方向" in combined
 
 
+def test_result_dataclasses_render_markdown_in_conclusion_first_order() -> None:
+    distribution = DistributionDiagnostics(
+        summary={"n_obs": 3, "primary_tail_feature": "near_normal"},
+        kde=pd.DataFrame({"tail_feature": ["near_normal"]}, index=pd.Index([1], name="lag")),
+        qq=pd.DataFrame({"qq_deviation": [0.12]}, index=pd.Index([1], name="lag")),
+        plot_paths={},
+    )
+    analysis = TimeSeriesAnalysis(
+        summary={"n_obs": 3, "trend_type": "weak trend or counter-trend"},
+        distribution=distribution,
+        stationarity=pd.DataFrame(
+            {
+                "window_size": [20],
+                "hurst": [0.5],
+                "adf_pvalue": [0.2],
+                "kpss_pvalue": [0.1],
+                "trend_type": ["weak trend or counter-trend"],
+            }
+        ),
+        log_diff=pd.DataFrame({"lag": [1], "label": ["Log diff 1"]}),
+        log_diff_kde=pd.DataFrame({"lag": [1], "tail_feature": ["near_normal"]}),
+        log_diff_qq=pd.DataFrame({"lag": [1], "qq_deviation": [0.12]}),
+    )
+    mean_reversion = MeanReversionAnalysis(
+        summary={"is_mean_reverting": True, "half_life_bars": 3.0},
+        stationarity=analysis.stationarity,
+        half_life={"lambda": -0.2, "half_life_bars": 3.0},
+        distribution=distribution,
+    )
+    cointegration = CointegrationAnalysis(
+        summary={"alpha": 1.0, "beta": 2.0, "is_cointegrated": True},
+        residuals=pd.Series([0.1, -0.1, 0.0]),
+        evidence={"adf_pvalue": 0.01},
+    )
+    interpretation = TimeSeriesInterpretation(
+        summary={"one_sentence": "结论先行。"},
+        properties={
+            "平稳性分析": "平稳性说明。",
+            "记忆性分析": "记忆性说明。",
+            "趋势性分析": "趋势性说明。",
+            "分布形态分析": "分布说明。",
+        },
+        strategy_directions=["适合进一步研究状态过滤等投研方向。"],
+        factor_directions=["状态识别类因子。"],
+        caveats=["检测结果不是交易信号。"],
+    )
+    report = TimeSeriesReport(
+        analysis=analysis,
+        interpretation=interpretation,
+        markdown="# Report\n\n## 一句话结论\n\n结论。\n\n## 检测证据\n\n证据。",
+        markdown_path=None,
+        plot_paths={},
+    )
+    generic_report = AnalysisReport(
+        analysis=cointegration,
+        markdown="# Generic\n\n## 一句话结论\n\n结论。",
+        markdown_path=None,
+    )
+
+    for markdown in [
+        distribution.to_markdown(),
+        analysis.to_markdown(),
+        mean_reversion.to_markdown(),
+        cointegration.to_markdown(),
+    ]:
+        assert markdown.index("## Summary") < markdown.index("## Evidence")
+
+    interpretation_markdown = interpretation.to_markdown()
+    assert interpretation_markdown.index("## 一句话结论") < interpretation_markdown.index(
+        "## 时间序列性质"
+    )
+    assert "## 量化投研建议" in interpretation_markdown
+    assert report.to_markdown().startswith("# Report")
+    assert generic_report.to_markdown().startswith("# Generic")
+
+
 def test_generate_time_series_report_writes_markdown_and_plots(tmp_path: Path) -> None:
     report = generate_time_series_report(
         _trend_price(),
@@ -132,6 +213,57 @@ def test_generate_time_series_report_writes_markdown_and_plots(tmp_path: Path) -
     assert "交易信号" not in markdown
     assert "build_time_series_" + "factor_frame" not in markdown
     assert "Factor" + " Snapshot" not in markdown
+
+
+def test_report_generators_reject_unsupported_language() -> None:
+    with pytest.raises(ValueError, match="language='zh'"):
+        generate_time_series_report(_trend_price(), language="en")
+
+    with pytest.raises(ValueError, match="language='zh'"):
+        generate_spread_report(_spread_series(), language="en")
+
+    y, x = _cointegrated_pair()
+    with pytest.raises(ValueError, match="language='zh'"):
+        generate_pair_cointegration_report(y, x, language="en")
+
+
+def test_report_generators_can_skip_files_and_plots(tmp_path: Path) -> None:
+    time_series_report = generate_time_series_report(
+        _trend_price(),
+        output_dir=None,
+        include_plots=False,
+    )
+    assert time_series_report.markdown_path is None
+    assert time_series_report.plot_paths == {}
+    assert "未生成图表" in time_series_report.markdown
+
+    spread_report_no_output = generate_spread_report(
+        _spread_series(),
+        output_dir=None,
+        include_plots=False,
+    )
+    assert spread_report_no_output.markdown_path is None
+    assert spread_report_no_output.plot_paths == {}
+    assert "未生成图表" in spread_report_no_output.markdown
+
+    spread_report = generate_spread_report(
+        _spread_series(),
+        output_dir=tmp_path / "spread",
+        include_plots=False,
+    )
+    assert spread_report.markdown_path == tmp_path / "spread" / "spread_spread_report.md"
+    assert spread_report.markdown_path.exists()
+    assert spread_report.plot_paths == {}
+    assert "未生成图表" in spread_report.markdown
+    assert not list((tmp_path / "spread").glob("*.png"))
+
+    y, x = _cointegrated_pair()
+    pair_report = generate_pair_cointegration_report(y, x, output_dir=None)
+    assert pair_report.markdown_path is None
+    assert pair_report.plot_paths == {}
+    assert pair_report.markdown.index("## 一句话结论") < pair_report.markdown.index(
+        "## Pair / 双序列协整检测结果"
+    )
 
 
 def test_generate_spread_report_writes_spread_example(tmp_path: Path) -> None:

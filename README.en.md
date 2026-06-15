@@ -9,12 +9,26 @@ Markdown reports that explain the conclusion first and then show the evidence.
 
 ## Workflow
 
-1. The user asks for time-series analysis, and the agent first identifies the input type.
-2. For a single price series, call `generate_time_series_report` and analyze both the original price series and `Log diff 1/5/10`.
-3. For a spread or price difference, call `generate_spread_report`; it uses `analyze_spread` to measure half-life, Hurst, ADF, and KPSS.
-4. For two related series, call `generate_pair_cointegration_report`; it uses `analyze_pair_cointegration` to measure Engle-Granger cointegration plus residual stationarity.
-5. The report explains stationarity, memory, trend, and distribution shape in plain language, then suggests strategy and factor research directions.
-6. The output is structured Markdown plus PNG charts; the user reads conclusions first, then evidence and charts.
+```mermaid
+flowchart TD
+    A["User asks for time-series analysis"] --> B["Agent identifies the input type"]
+    B --> C{"Input type"}
+    C --> D["Single price series"]
+    C --> E["Spread or price difference"]
+    C --> F["Two related series"]
+    D --> G["generate_time_series_report"]
+    G --> H["Analyze original series and Log diff 1/5/10"]
+    E --> I["generate_spread_report"]
+    I --> J["analyze_spread: half-life Hurst ADF KPSS"]
+    F --> K["generate_pair_cointegration_report"]
+    K --> L["analyze_pair_cointegration: Engle-Granger and residual stationarity"]
+    H --> M["Explain stationarity memory trend distribution"]
+    J --> M
+    L --> M
+    M --> N["Suggest strategy and factor research directions"]
+    N --> O["Output Markdown and PNG charts"]
+    O --> P["User reads conclusions then evidence"]
+```
 
 ## Example Visualization And Summary
 
