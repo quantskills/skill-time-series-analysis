@@ -71,6 +71,25 @@ def test_analyze_pair_cointegration_returns_regression_evidence() -> None:
     assert result.to_markdown().index("## Summary") < result.to_markdown().index("## Evidence")
 
 
+def test_markdown_tables_escape_multiline_values() -> None:
+    distribution = DistributionDiagnostics(
+        summary={"n_obs": 2},
+        kde=pd.DataFrame({"tail_feature": ["line one\nline two"]}),
+        qq=pd.DataFrame(),
+        plot_paths={},
+    )
+    result = TimeSeriesAnalysis(
+        summary={"trend_type": "line one\nline two"},
+        distribution=distribution,
+        stationarity=pd.DataFrame({"kpss_warning": ["line one\nline two"]}),
+    )
+
+    markdown = result.to_markdown()
+
+    assert "line one<br>line two" in markdown
+    assert "line one\nline two" not in markdown
+
+
 def test_low_level_helpers_keep_existing_behavior() -> None:
     frame = analysis_results_to_df(
         {

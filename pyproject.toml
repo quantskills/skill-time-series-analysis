@@ -36,10 +36,15 @@ known-first-party = ["skill_time_series_analysis"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: tests that call external services or real data providers",
+]
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.0",
     "ruff>=0.15.0",
     "pyyaml>=6.0.0",
+    "panda-data>=0.0.9",
+    "requests>=2.34.2",
 ]

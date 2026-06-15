@@ -12,8 +12,10 @@ def _format_value(value: Any) -> str:
     if isinstance(value, float):
         if pd.isna(value):
             return "nan"
-        return f"{value:.4f}"
-    return str(value)
+        text = f"{value:.4f}"
+    else:
+        text = str(value)
+    return text.replace("|", "\\|").replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>")
 
 
 def _summary_markdown(summary: dict[str, Any]) -> str:
