@@ -8,7 +8,7 @@ alwaysApply: false
 
 When diagnosing a financial time series, use the API pyramid:
 
-1. Start with `analyze_price_series`, `analyze_spread`, or `analyze_pair_cointegration`.
-2. Report `summary` before evidence.
-3. Use diagnostics helpers only for custom workflows.
-4. Do not turn diagnostics into investment advice or trading signals.
+1. For user-facing single-series output, start with `generate_time_series_report`.
+2. Use `analyze_price_series`, `analyze_spread`, or `analyze_pair_cointegration` for custom workflows.
+3. Report conclusions before evidence.
+4. Phrase strategy and factor output as research directions only.

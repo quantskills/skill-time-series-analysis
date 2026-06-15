@@ -10,6 +10,7 @@
 
 - KDE and QQ diagnostics describe return-shape evidence, not profitability.
 - High skew or QQ deviation indicates non-normality; it does not imply a tradable edge.
+- Strategy and factor sections should be phrased as research directions, not order instructions.
 
 ## Mean Reversion
 

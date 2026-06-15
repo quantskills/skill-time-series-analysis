@@ -1,6 +1,6 @@
 ---
 name: time-series-analysis
-description: Use when an agent needs conclusion-first diagnostics for financial time series, including price-series distribution checks, Hurst/ADF/KPSS stationarity, spread half-life, Engle-Granger cointegration, KDE or QQ evidence, and generic time-series factor examples.
+description: Use when an agent needs conclusion-first diagnostics or Markdown reports for financial time series, including KDE/QQ distribution checks, Hurst/ADF/KPSS stationarity, spread half-life, Engle-Granger cointegration, and generic time-series factor examples.
 quantSkills:
   organization: https://github.com/quantskills
   repository: quantskills/skill-time-series-analysis
@@ -23,20 +23,22 @@ quantSkills:
 # Time Series Analysis
 
 Use this skill to diagnose price series, spreads, or pairs before choosing a
-model, factor, or strategy workflow. Start from the highest-level API and only
-drop to low-level helpers when composing custom analysis.
+model, factor, or strategy workflow. For user-facing answers, start with the
+report API so the agent can return a Chinese, conclusion-first Markdown
+diagnostic with evidence and research directions.
 
 ## Core Workflow
 
-1. Use `analyze_price_series`, `analyze_spread`, or `analyze_pair_cointegration`.
-2. Read the returned `summary` first and write the conclusion before evidence.
-3. Use `to_markdown()` for a compact report with Summary before Evidence.
-4. Open references only when you need deeper API details or interpretation rules.
+1. For a single price series, call `generate_time_series_report(...)`.
+2. Use `report.to_markdown()` or the written `.md` file as the user-facing answer.
+3. For custom workflows, use `analyze_price_series`, `analyze_spread`, or `analyze_pair_cointegration`.
+4. Report conclusions before evidence; phrase strategy output as research directions, not orders.
 
 ## API Pyramid
 
 | Layer | Use first | Purpose |
 |---|---|---|
+| Report API | `generate_time_series_report`, `interpret_time_series_analysis` | User-facing Markdown reports |
 | Main API | `analyze_price_series`, `analyze_spread`, `analyze_pair_cointegration`, `build_time_series_factor_frame` | Agent-facing conclusions |
 | Diagnostics | `distribution_diagnostics`, `stationarity_diagnostics`, `mean_reversion_diagnostics`, `cointegration_diagnostics` | Composable workflows |
 | Helpers | `kde_analysis`, `qq_analysis`, `TimeSeriesAnalyzer`, factor helpers | Advanced or custom analysis |
@@ -47,6 +49,8 @@ Always produce:
 
 - a short conclusion from `result.summary`
 - key evidence tables or charts
+- plain-language stationarity, memory, trend, and distribution interpretation
+- quant research directions for strategy and factor exploration
 - explicit caveats when sample length is short, tests conflict, or residuals are unstable
 
 ## References

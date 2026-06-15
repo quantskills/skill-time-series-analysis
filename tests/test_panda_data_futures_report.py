@@ -7,7 +7,7 @@ import matplotlib
 import pandas as pd
 import pytest
 
-from skill_time_series_analysis import analyze_price_series, build_time_series_factor_frame
+from skill_time_series_analysis import build_time_series_factor_frame, generate_time_series_report
 
 matplotlib.use("Agg")
 
@@ -100,11 +100,12 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
         assert len(symbol_bars) >= 180, f"{symbol} needs at least 180 daily bars"
 
         symbol_report_dir = REPORT_DIR / symbol.replace(".", "_")
-        analysis = analyze_price_series(
+        report = generate_time_series_report(
             symbol_bars["close"],
+            series_name=symbol.replace(".", "_"),
+            title=f"{symbol} 自动时序检测报告",
             windows=[60, 120, 180],
             lags=[1, 5, 20],
-            plot=False,
             output_dir=symbol_report_dir,
         )
         factors = build_time_series_factor_frame(symbol_bars, lookback=20).tail(5).copy()
@@ -114,26 +115,28 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
         summary_rows.append(
             {
                 "symbol": symbol,
-                "n_obs": analysis.summary["n_obs"],
-                "trend_score": analysis.summary["trend_score"],
-                "trend_type": analysis.summary["trend_type"],
-                "tail": analysis.summary["primary_tail_feature"],
-                "skew": analysis.summary["primary_skew_feature"],
+                "n_obs": report.analysis.summary["n_obs"],
+                "trend_score": report.analysis.summary["trend_score"],
+                "trend_type": report.analysis.summary["trend_type"],
+                "tail": report.analysis.summary["primary_tail_feature"],
+                "skew": report.analysis.summary["primary_skew_feature"],
             }
+        )
+        symbol_markdown = report.to_markdown().replace(
+            f"# {symbol} 自动时序检测报告",
+            f"### {symbol} 自动时序检测报告",
+            1,
+        )
+        symbol_markdown = symbol_markdown.replace(
+            "](distribution_",
+            f"]({symbol_report_dir.name}/distribution_",
         )
 
         report_sections.extend(
             [
-                f"## {symbol}",
+                f"## {symbol} 完整检测结果",
                 "",
-                analysis.to_markdown(),
-                "",
-                "### Generated Charts",
-                "",
-                f"![KDE]({symbol.replace('.', '_')}/distribution_kde_dist.png)",
-                "",
-                f"![QQ]({symbol.replace('.', '_')}/distribution_qq_plot.png)",
-                "",
+                symbol_markdown,
             ]
         )
 
@@ -160,9 +163,16 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
 
     assert REPORT_MD.exists()
     assert FACTOR_CSV.exists()
+    report_text = REPORT_MD.read_text(encoding="utf-8")
+    for phrase in ["平稳性分析", "记忆性分析", "趋势性分析", "分布形态分析", "策略方向", "因子方向"]:
+        assert phrase in report_text
+    assert "买入" not in report_text
+    assert "卖出" not in report_text
+    assert "交易信号" not in report_text
     assert set(summary["symbol"]) == set(SYMBOLS)
     assert factors_tail["symbol"].nunique() == len(SYMBOLS)
     for symbol in SYMBOLS:
         symbol_dir = REPORT_DIR / symbol.replace(".", "_")
         assert (symbol_dir / "distribution_kde_dist.png").exists()
         assert (symbol_dir / "distribution_qq_plot.png").exists()
+        assert (symbol_dir / f"{symbol.replace('.', '_')}_time_series_report.md").exists()

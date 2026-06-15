@@ -17,7 +17,12 @@ from skill_time_series_analysis import (
     analyze_pair_cointegration,
     analyze_price_series,
     analyze_spread,
+    engle_granger_cointegration,
     half_life_of_mean_reversion,
+    kde_analysis,
+    qq_analysis,
+    stationarity_diagnostics,
+    ts_groupby_period,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,6 +74,63 @@ def test_analyze_pair_cointegration_returns_regression_evidence() -> None:
     assert "adf_pvalue" in result.summary
     assert len(result.residuals) == 120
     assert result.to_markdown().index("## Summary") < result.to_markdown().index("## Evidence")
+
+
+def test_distribution_helpers_return_kde_and_qq_fields() -> None:
+    price = _price_series(140)
+
+    kde, _ = kde_analysis(price, show=False, lags=[1, 5])
+    qq, _ = qq_analysis(price, show=False, lags=[1, 5])
+
+    assert set(kde) == {1, 5}
+    assert {"peak_height", "tail_feature", "skew_feature"}.issubset(kde[1])
+    assert set(qq) == {1, 5}
+    assert {"kurtosis", "skewness", "qq_deviation"}.issubset(qq[1])
+
+
+def test_stationarity_helpers_cover_hurst_adf_and_kpss() -> None:
+    price = _price_series(220)
+    analyzer = TimeSeriesAnalyzer(price)
+
+    hurst = analyzer.calculate_hurst(min_lag=10, max_lag=30)
+    adf = analyzer.run_adf_test()
+    kpss = analyzer.run_kpss_test()
+    stationarity = stationarity_diagnostics(price, windows=[60, 120])
+
+    assert np.isfinite(hurst)
+    assert {"statistic", "pvalue", "lags", "critical_values"}.issubset(adf)
+    assert {"statistic", "pvalue", "critical_values", "warning"}.issubset(kpss)
+    assert {"hurst", "adf_pvalue", "kpss_pvalue", "trend_score", "trend_type"}.issubset(
+        stationarity.columns
+    )
+
+
+def test_engle_granger_cointegration_helper_returns_residual_adf() -> None:
+    x = _price_series(100)
+    y = 2.0 * x + 3.0
+
+    result = engle_granger_cointegration(y, x)
+
+    assert result["alpha"] == pytest.approx(3.0, rel=1e-6)
+    assert result["beta"] == pytest.approx(2.0, rel=1e-6)
+    assert result["adf_pvalue"] <= 0.05
+    assert len(result["residuals"]) == 100
+
+
+def test_ts_groupby_period_writes_png_and_csv(tmp_path: Path) -> None:
+    price = _price_series(120)
+
+    _, plot_path, csv_path = ts_groupby_period(
+        price,
+        periods=["1min", "7D"],
+        save_path=tmp_path / "period.png",
+        show=False,
+    )
+
+    assert plot_path is not None
+    assert csv_path is not None
+    assert Path(plot_path).exists()
+    assert Path(csv_path).exists()
 
 
 def test_markdown_tables_escape_multiline_values() -> None:

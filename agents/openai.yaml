@@ -15,15 +15,17 @@ trigger:
     - 半衰期
     - KDE
     - QQ plot
+    - time-series report
+    - 自动时序检测报告
 instructions: |
-  Use the highest-level API first: analyze_price_series, analyze_spread, or
-  analyze_pair_cointegration. Report the summary before evidence. Open the
-  references only when you need API details, interpretation rules, report
-  format, or anti-pattern checks.
+  For a user-facing single-series request, call generate_time_series_report
+  first and return its Markdown. Use analyze_price_series, analyze_spread, or
+  analyze_pair_cointegration for custom workflows. Report conclusions before
+  evidence, and describe strategy/factor output as research directions only.
 interface:
   display_name: "Time Series Analysis"
   short_description: "Price-series diagnostics and stationarity checks"
-  default_prompt: "Use $time-series-analysis to diagnose this price series before choosing a model."
+  default_prompt: "Use $time-series-analysis to generate a Markdown diagnostic report for this price series."
 references:
   - references/workflow.md
   - references/api.md

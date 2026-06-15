@@ -9,5 +9,6 @@ PANDA_DATA_ENV_FILE=/path/to/.env \
   uv run python -m pytest tests/test_panda_data_futures_report.py -q
 ```
 
-The report uses PandaData real futures daily bars and is kept in the repository
-as an inspectable example artifact.
+The report uses PandaData real futures daily bars, calls the public
+`generate_time_series_report` API, and is kept in the repository as an
+inspectable example artifact.

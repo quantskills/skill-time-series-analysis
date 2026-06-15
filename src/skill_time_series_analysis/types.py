@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -43,6 +44,12 @@ def _frame_markdown(frame: pd.DataFrame, *, include_index: bool = True, rows: in
     for row in body:
         lines.append("| " + " | ".join(_format_value(value) for value in row) + " |")
     return "\n".join(lines)
+
+
+def _bullet_markdown(items: list[str]) -> str:
+    if not items:
+        return "- 无。"
+    return "\n".join(f"- {item}" for item in items)
 
 
 @dataclass
@@ -124,9 +131,58 @@ class CointegrationAnalysis:
         )
 
 
+@dataclass
+class TimeSeriesInterpretation:
+    """Human-readable interpretation of a price-series analysis."""
+
+    summary: dict[str, Any]
+    properties: dict[str, str]
+    strategy_directions: list[str]
+    factor_directions: list[str]
+    caveats: list[str]
+
+    def to_markdown(self) -> str:
+        return (
+            "## 一句话结论\n\n"
+            f"{self.summary.get('one_sentence', '')}\n\n"
+            "## 时间序列性质\n\n"
+            "### 平稳性分析\n\n"
+            f"{self.properties.get('平稳性分析', '')}\n\n"
+            "### 记忆性分析\n\n"
+            f"{self.properties.get('记忆性分析', '')}\n\n"
+            "### 趋势性分析\n\n"
+            f"{self.properties.get('趋势性分析', '')}\n\n"
+            "### 分布形态分析\n\n"
+            f"{self.properties.get('分布形态分析', '')}\n\n"
+            "## 量化投研建议\n\n"
+            "### 策略方向\n\n"
+            f"{_bullet_markdown(self.strategy_directions)}\n\n"
+            "### 因子方向\n\n"
+            f"{_bullet_markdown(self.factor_directions)}\n\n"
+            "## 注意事项\n\n"
+            f"{_bullet_markdown(self.caveats)}\n"
+        )
+
+
+@dataclass
+class TimeSeriesReport:
+    """Structured Markdown report produced by the agent-facing report API."""
+
+    analysis: TimeSeriesAnalysis
+    interpretation: TimeSeriesInterpretation
+    markdown: str
+    markdown_path: Path | None
+    plot_paths: dict[str, str]
+
+    def to_markdown(self) -> str:
+        return self.markdown
+
+
 __all__ = [
     "CointegrationAnalysis",
     "DistributionDiagnostics",
     "MeanReversionAnalysis",
     "TimeSeriesAnalysis",
+    "TimeSeriesInterpretation",
+    "TimeSeriesReport",
 ]

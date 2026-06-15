@@ -6,6 +6,26 @@
 Python API 可分析价格序列、spread、双序列协整、均值回复半衰期，以及四个 generic
 time-series factor 示例。
 
+## 工作流
+
+```mermaid
+flowchart TD
+    A["用户提出时序分析请求"] --> B["Agent 识别对象类型"]
+    B --> C{"输入是什么？"}
+    C -->|单条价格序列| D["调用 generate_time_series_report"]
+    C -->|spread / 价差| E["调用 analyze_spread"]
+    C -->|两条相关序列| F["调用 analyze_pair_cointegration"]
+    C -->|OHLCV bars| G["调用 build_time_series_factor_frame"]
+    D --> H["自动运行 KDE / QQ / Hurst / ADF / KPSS"]
+    E --> H
+    F --> H
+    G --> I["生成 generic 时序因子"]
+    H --> J["解释平稳性 / 记忆性 / 趋势性 / 分布形态"]
+    J --> K["给出策略与因子投研方向"]
+    K --> L["输出结构化 Markdown 和 PNG 图"]
+    L --> M["用户先读结论，再检查证据和图表"]
+```
+
 ## 快速开始
 
 ```bash
@@ -14,10 +34,16 @@ uv run ruff check .
 ```
 
 ```python
-from skill_time_series_analysis import analyze_price_series
+from skill_time_series_analysis import generate_time_series_report
 
-result = analyze_price_series(price, windows=[40, 80], lags=[1, 2, 5])
-print(result.to_markdown())
+report = generate_time_series_report(
+    price,
+    series_name="demo",
+    windows=[60, 120, 180],
+    lags=[1, 5, 20],
+    output_dir="reports/demo",
+)
+print(report.to_markdown())
 ```
 
 ## 真实数据示例报告
@@ -43,6 +69,8 @@ PANDA_DATA_ENV_FILE=/path/to/.env \
 
 先用高层主入口：
 
+- `generate_time_series_report`
+- `interpret_time_series_analysis`
 - `analyze_price_series`
 - `analyze_spread`
 - `analyze_pair_cointegration`

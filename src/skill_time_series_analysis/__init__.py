@@ -27,11 +27,17 @@ from skill_time_series_analysis.factors import (
     ts_trend_slope,
     ts_volatility,
 )
+from skill_time_series_analysis.reporting import (
+    generate_time_series_report,
+    interpret_time_series_analysis,
+)
 from skill_time_series_analysis.types import (
     CointegrationAnalysis,
     DistributionDiagnostics,
     MeanReversionAnalysis,
     TimeSeriesAnalysis,
+    TimeSeriesInterpretation,
+    TimeSeriesReport,
 )
 
 __all__ = [
@@ -39,6 +45,8 @@ __all__ = [
     "DistributionDiagnostics",
     "MeanReversionAnalysis",
     "TimeSeriesAnalysis",
+    "TimeSeriesInterpretation",
+    "TimeSeriesReport",
     "TimeSeriesAnalyzer",
     "analysis_results_to_df",
     "analyze_pair_cointegration",
@@ -50,8 +58,10 @@ __all__ = [
     "cointegration_diagnostics",
     "distribution_diagnostics",
     "engle_granger_cointegration",
+    "generate_time_series_report",
     "ensure_dir_and_get_path",
     "half_life_of_mean_reversion",
+    "interpret_time_series_analysis",
     "kde_analysis",
     "mean_reversion_diagnostics",
     "qq_analysis",

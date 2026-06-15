@@ -7,6 +7,26 @@ conclusion-first agent workflow plus a Python package for price-series
 distribution checks, Hurst/ADF/KPSS stationarity analysis, Engle-Granger
 cointegration, mean-reversion half-life, and generic time-series factor examples.
 
+## Workflow
+
+```mermaid
+flowchart TD
+    A["User asks for time-series analysis"] --> B["Agent identifies the input type"]
+    B --> C{"What is the input?"}
+    C -->|Single price series| D["Call generate_time_series_report"]
+    C -->|Spread / price difference| E["Call analyze_spread"]
+    C -->|Two related series| F["Call analyze_pair_cointegration"]
+    C -->|OHLCV bars| G["Call build_time_series_factor_frame"]
+    D --> H["Run KDE / QQ / Hurst / ADF / KPSS"]
+    E --> H
+    F --> H
+    G --> I["Build generic time-series factors"]
+    H --> J["Explain stationarity / memory / trend / distribution shape"]
+    J --> K["Suggest strategy and factor research directions"]
+    K --> L["Output structured Markdown and PNG charts"]
+    L --> M["User reads conclusions first, then evidence and charts"]
+```
+
 ## Quick Start
 
 ```bash
@@ -15,10 +35,16 @@ uv run ruff check .
 ```
 
 ```python
-from skill_time_series_analysis import analyze_price_series
+from skill_time_series_analysis import generate_time_series_report
 
-result = analyze_price_series(price, windows=[40, 80], lags=[1, 2, 5])
-print(result.to_markdown())
+report = generate_time_series_report(
+    price,
+    series_name="demo",
+    windows=[60, 120, 180],
+    lags=[1, 5, 20],
+    output_dir="reports/demo",
+)
+print(report.to_markdown())
 ```
 
 ## Real-Data Example Report
@@ -45,6 +71,8 @@ runtime Python package itself does not depend on PandaData.
 
 Use top-level APIs first:
 
+- `generate_time_series_report`
+- `interpret_time_series_analysis`
 - `analyze_price_series`
 - `analyze_spread`
 - `analyze_pair_cointegration`
