@@ -2,9 +2,43 @@
 
 简体中文 | [English](README.en.md)
 
-面向 AI agent 的 hybrid runnable skill：先输出时序诊断结论，再展开证据。内置
-Python API 可分析价格序列、spread、双序列协整、均值回复半衰期，以及四个 generic
-time-series factor 示例。
+这是一个给 AI agent 和量化研究者使用的时序分析工具。它可以直接通过 Python API
+分析价格序列、spread、双序列协整和均值回复半衰期，也可以自动生成先给结论、再展开
+证据的 Markdown 检测报告。
+
+## 案例可视化与总结
+
+下面的案例来自 `reports/panda_data_futures/multi_symbol_futures_timeseries.md`，
+使用 PandaData 真实期货日线，对 `IF_DOMINANT.CFE`、`CU_DOMINANT.SHF` 和
+`I_DOMINANT.DCE` 生成自动时序检测报告。
+
+| symbol | n_obs | trend_type | tail | skew |
+| --- | ---: | --- | --- | --- |
+| `IF_DOMINANT.CFE` | 242 | strong trend, non-stationary (trend strategies) | fat_tail | right_skew |
+| `CU_DOMINANT.SHF` | 242 | weak trend or counter-trend | fat_tail | symmetric |
+| `I_DOMINANT.DCE` | 242 | weak trend or counter-trend | fat_tail | right_skew |
+
+`IF_DOMINANT.CFE` 的报告结论示例：
+
+- 平稳性分析：ADF 未拒绝单位根、KPSS 拒绝平稳假设，整体更像趋势非平稳序列。
+- 记忆性分析：Hurst 较高，显示较强持续性，价格变化更容易沿原方向延续。
+- 趋势性分析：基于 Hurst、ADF 和 KPSS 的组合判断，最新窗口属于强趋势、趋势非平稳状态。
+- 投研方向：趋势跟随、时间序列动量、突破确认、趋势状态识别、尾部风险过滤。
+
+![IF_DOMINANT.CFE KDE](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_kde_dist.png)
+
+![IF_DOMINANT.CFE QQ](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_qq_plot.png)
+
+这里的 `OHLCV bars` 指单个品种按时间排列的 `open/high/low/close/volume`
+行情表。`generic 时序因子` 指只使用该品种自身历史 OHLCV 计算出来的通用研究特征，
+不是交易信号。例如 `build_time_series_factor_frame` 会生成：
+
+| 因子 | 含义 | 典型用途 |
+| --- | --- | --- |
+| `momentum` | 过去 lookback 周期收益 | 趋势/动量研究 |
+| `volatility` | 滚动收益波动率 | 风险过滤、仓位预算 |
+| `trend_slope` | 滚动 log price 斜率 | 趋势强度识别 |
+| `mean_reversion_zscore` | 价格相对滚动均值的反向 z-score | 均值回复/偏离修复研究 |
 
 ## 工作流
 

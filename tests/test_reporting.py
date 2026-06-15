@@ -13,6 +13,8 @@ from skill_time_series_analysis import (
     interpret_time_series_analysis,
 )
 
+REMOVED_TREND_METRIC = "trend" + "_score"
+
 
 def _trend_price(n: int = 220) -> pd.Series:
     index = pd.date_range("2024-01-01", periods=n, freq="D", name="date")
@@ -92,6 +94,7 @@ def test_generate_time_series_report_writes_markdown_and_plots(tmp_path: Path) -
     for section in expected_sections:
         assert section in markdown
     assert markdown.index("## 一句话结论") < markdown.index("## 检测证据")
+    assert REMOVED_TREND_METRIC not in markdown
     assert "投研方向" in markdown
     assert "适合进一步研究" in markdown
     assert "买入" not in markdown

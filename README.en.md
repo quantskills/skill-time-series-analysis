@@ -2,10 +2,46 @@
 
 [简体中文](README.md) | English
 
-Hybrid runnable QuantSkills skill for time-series diagnostics. It provides a
-conclusion-first agent workflow plus a Python package for price-series
-distribution checks, Hurst/ADF/KPSS stationarity analysis, Engle-Granger
-cointegration, mean-reversion half-life, and generic time-series factor examples.
+This is a time-series analysis tool for AI agents and quantitative researchers.
+It provides Python APIs for price-series diagnostics, spread analysis,
+Engle-Granger cointegration, and mean-reversion half-life, and it can generate
+Markdown reports that explain the conclusion first and then show the evidence.
+
+## Example Visualization And Summary
+
+The example below is generated from
+`reports/panda_data_futures/multi_symbol_futures_timeseries.md`. It uses real
+PandaData futures daily bars for `IF_DOMINANT.CFE`, `CU_DOMINANT.SHF`, and
+`I_DOMINANT.DCE`.
+
+| symbol | n_obs | trend_type | tail | skew |
+| --- | ---: | --- | --- | --- |
+| `IF_DOMINANT.CFE` | 242 | strong trend, non-stationary (trend strategies) | fat_tail | right_skew |
+| `CU_DOMINANT.SHF` | 242 | weak trend or counter-trend | fat_tail | symmetric |
+| `I_DOMINANT.DCE` | 242 | weak trend or counter-trend | fat_tail | right_skew |
+
+Example conclusion for `IF_DOMINANT.CFE`:
+
+- Stationarity: ADF does not reject a unit root and KPSS rejects stationarity, so the latest window looks trend non-stationary.
+- Memory: Hurst is elevated, indicating persistence and directional continuation.
+- Trend: the latest window is classified as strong trend and trend non-stationary from the Hurst, ADF, and KPSS combination.
+- Research directions: trend following, time-series momentum, breakout confirmation, trend-state filters, and tail-risk filters.
+
+![IF_DOMINANT.CFE KDE](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_kde_dist.png)
+
+![IF_DOMINANT.CFE QQ](reports/panda_data_futures/IF_DOMINANT_CFE/distribution_qq_plot.png)
+
+`OHLCV bars` means a time-indexed `open/high/low/close/volume` table for one
+instrument. A `generic time-series factor` is a reusable research feature
+computed only from that instrument's own historical OHLCV bars; it is not a
+trading signal. `build_time_series_factor_frame` outputs:
+
+| Factor | Meaning | Typical Use |
+| --- | --- | --- |
+| `momentum` | Trailing lookback return | Trend and momentum research |
+| `volatility` | Rolling return volatility | Risk filters and position budgets |
+| `trend_slope` | Rolling log-price slope | Trend strength detection |
+| `mean_reversion_zscore` | Negative price z-score versus rolling mean | Mean-reversion and deviation repair research |
 
 ## Workflow
 

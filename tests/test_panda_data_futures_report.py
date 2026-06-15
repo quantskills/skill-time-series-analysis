@@ -18,6 +18,8 @@ FACTOR_CSV = REPORT_DIR / "multi_symbol_factors_tail.csv"
 SYMBOLS = ["IF_DOMINANT.CFE", "CU_DOMINANT.SHF", "I_DOMINANT.DCE"]
 START_DATE = "20240101"
 END_DATE = "20241231"
+REMOVED_TREND_METRIC = "trend" + "_score"
+REMOVED_TREND_METRIC_ZH = "趋势" + "分数"
 
 
 def _load_env_file(path: Path) -> None:
@@ -116,7 +118,6 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
             {
                 "symbol": symbol,
                 "n_obs": report.analysis.summary["n_obs"],
-                "trend_score": report.analysis.summary["trend_score"],
                 "trend_type": report.analysis.summary["trend_type"],
                 "tail": report.analysis.summary["primary_tail_feature"],
                 "skew": report.analysis.summary["primary_skew_feature"],
@@ -166,6 +167,8 @@ def test_real_panda_data_multi_symbol_futures_report() -> None:
     report_text = REPORT_MD.read_text(encoding="utf-8")
     for phrase in ["平稳性分析", "记忆性分析", "趋势性分析", "分布形态分析", "策略方向", "因子方向"]:
         assert phrase in report_text
+    assert REMOVED_TREND_METRIC not in report_text
+    assert REMOVED_TREND_METRIC_ZH not in report_text
     assert "买入" not in report_text
     assert "卖出" not in report_text
     assert "交易信号" not in report_text

@@ -453,22 +453,6 @@ class TimeSeriesAnalyzer:
                 "window_max_lag": window_max_lag,
             }
 
-    def _calculate_trend_score(self, res: dict[str, Any]) -> int:
-        if np.isnan(res["hurst"]):
-            return 0
-        score = 0
-        if res["hurst"] > 0.6:
-            score += 2
-        elif res["hurst"] > 0.55:
-            score += 1
-        if res["adf"]["pvalue"] > 0.05:
-            score += 1
-        if res["kpss"]["pvalue"] < 0.05:
-            score += 1
-        if res["hurst"] > 0.55 and res["adf"]["pvalue"] > 0.05 and res["kpss"]["pvalue"] < 0.05:
-            score += 1
-        return min(score, 5)
-
     def _classify_trend_type(self, res: dict[str, Any]) -> str:
         if np.isnan(res["hurst"]):
             return "undetermined (hurst failed)"
@@ -495,7 +479,6 @@ class TimeSeriesAnalyzer:
                     "hurst": res["hurst"],
                     "adf_pvalue": res["adf"]["pvalue"],
                     "kpss_pvalue": res["kpss"]["pvalue"],
-                    "trend_score": self._calculate_trend_score(res),
                     "trend_type": self._classify_trend_type(res),
                     "min_lag": res["min_lag"],
                     "effective_max_lag": res["window_max_lag"],
@@ -591,7 +574,6 @@ def analyze_price_series(
         "n_obs": int(len(price)),
         "start": str(price.index.min()) if hasattr(price, "index") else "",
         "end": str(price.index.max()) if hasattr(price, "index") else "",
-        "trend_score": latest.get("trend_score", np.nan),
         "trend_type": latest.get("trend_type", "unknown"),
         "primary_tail_feature": distribution.summary["primary_tail_feature"],
         "primary_skew_feature": distribution.summary["primary_skew_feature"],
@@ -737,7 +719,6 @@ def analyze_spread(
         "is_mean_reverting": half_life["is_mean_reverting"],
         "half_life_bars": half_life["half_life_bars"],
         "lambda": half_life["lambda"],
-        "trend_score": latest.get("trend_score", np.nan),
         "trend_type": latest.get("trend_type", "unknown"),
     }
     return MeanReversionAnalysis(

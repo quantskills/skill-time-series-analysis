@@ -6,11 +6,11 @@
 
 ## Cross-Symbol Summary
 
-| symbol | n_obs | trend_score | trend_type | tail | skew |
-| --- | --- | --- | --- | --- | --- |
-| IF_DOMINANT.CFE | 242 | 5 | strong trend, non-stationary (trend strategies) | fat_tail | right_skew |
-| CU_DOMINANT.SHF | 242 | 2 | weak trend or counter-trend | fat_tail | symmetric |
-| I_DOMINANT.DCE | 242 | 2 | weak trend or counter-trend | fat_tail | right_skew |
+| symbol | n_obs | trend_type | tail | skew |
+| --- | --- | --- | --- | --- |
+| IF_DOMINANT.CFE | 242 | strong trend, non-stationary (trend strategies) | fat_tail | right_skew |
+| CU_DOMINANT.SHF | 242 | weak trend or counter-trend | fat_tail | symmetric |
+| I_DOMINANT.DCE | 242 | weak trend or counter-trend | fat_tail | right_skew |
 
 ## IF_DOMINANT.CFE 完整检测结果
 
@@ -32,7 +32,7 @@ Hurst=0.7248，显示较强的持续性和记忆性，价格变化更容易沿�
 
 ### 趋势性分析
 
-trend_score=5，`strong trend, non-stationary (trend strategies)`，趋势性较强，适合先从趋势状态切入。
+最新窗口被分类为 `strong trend, non-stationary (trend strategies)`，这是由 Hurst=0.7248、ADF p-value=0.5294 和 KPSS p-value=0.0100 共同判断出的趋势性证据，适合先从趋势状态切入。
 
 ### 分布形态分析
 
@@ -55,11 +55,11 @@ KDE/QQ 显示主要尾部特征为 `fat_tail`，偏度特征为 `right_skew`，�
 
 ### Stationarity / Hurst / ADF / KPSS
 
-| window_size | hurst | adf_pvalue | kpss_pvalue | trend_score | trend_type | min_lag | effective_max_lag | kpss_warning |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 60 | 0.7213 | 0.0159 | 0.1000 | 2 | trending but stationary (short-term trend possible) | 10 | 20 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is greater than the p-value returned.<br> |
-| 120 | 0.7538 | 0.6333 | 0.0331 | 5 | strong trend, non-stationary (trend strategies) | 20 | 40 |  |
-| 180 | 0.7248 | 0.5294 | 0.0100 | 5 | strong trend, non-stationary (trend strategies) | 30 | 60 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is smaller than the p-value returned.<br> |
+| window_size | hurst | adf_pvalue | kpss_pvalue | trend_type | min_lag | effective_max_lag | kpss_warning |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 60 | 0.7213 | 0.0159 | 0.1000 | trending but stationary (short-term trend possible) | 10 | 20 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is greater than the p-value returned.<br> |
+| 120 | 0.7538 | 0.6333 | 0.0331 | strong trend, non-stationary (trend strategies) | 20 | 40 |  |
+| 180 | 0.7248 | 0.5294 | 0.0100 | strong trend, non-stationary (trend strategies) | 30 | 60 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is smaller than the p-value returned.<br> |
 
 ### KDE / QQ
 
@@ -114,7 +114,7 @@ Hurst=0.5496，接近随机游走区间，单独依赖记忆性证据需要谨�
 
 ### 趋势性分析
 
-trend_score=2，`weak trend or counter-trend`，趋势证据中等或冲突，需要加入过滤条件。
+最新窗口被分类为 `weak trend or counter-trend`，趋势性不够明确，应谨慎使用单一趋势假设。
 
 ### 分布形态分析
 
@@ -129,18 +129,18 @@ KDE/QQ 显示主要尾部特征为 `fat_tail`，偏度特征为 `symmetric`，�
 
 ### 因子方向
 
-- 状态识别类因子：趋势分数、波动分位、ADF/KPSS 组合标签和 regime filter。
+- 状态识别类因子：Hurst 状态、波动分位、ADF/KPSS 组合标签和 regime filter。
 - 风险类因子：尾部波动、QQ 偏离、极端收益频率和下行波动。
 
 ## 检测证据
 
 ### Stationarity / Hurst / ADF / KPSS
 
-| window_size | hurst | adf_pvalue | kpss_pvalue | trend_score | trend_type | min_lag | effective_max_lag | kpss_warning |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 60 | 0.7389 | 0.4414 | 0.0499 | 5 | strong trend, non-stationary (trend strategies) | 10 | 20 |  |
-| 120 | 0.5923 | 0.1036 | 0.0476 | 4 | strong trend, non-stationary (trend strategies) | 20 | 40 |  |
-| 180 | 0.5496 | 0.5097 | 0.0225 | 2 | weak trend or counter-trend | 30 | 60 |  |
+| window_size | hurst | adf_pvalue | kpss_pvalue | trend_type | min_lag | effective_max_lag | kpss_warning |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 60 | 0.7389 | 0.4414 | 0.0499 | strong trend, non-stationary (trend strategies) | 10 | 20 |  |
+| 120 | 0.5923 | 0.1036 | 0.0476 | strong trend, non-stationary (trend strategies) | 20 | 40 |  |
+| 180 | 0.5496 | 0.5097 | 0.0225 | weak trend or counter-trend | 30 | 60 |  |
 
 ### KDE / QQ
 
@@ -195,7 +195,7 @@ Hurst=0.4400，显示反持续性，序列更接近均值回复或震荡修复�
 
 ### 趋势性分析
 
-trend_score=2，`weak trend or counter-trend`，趋势证据中等或冲突，需要加入过滤条件。
+最新窗口被分类为 `weak trend or counter-trend`，趋势性不够明确，应谨慎使用单一趋势假设。
 
 ### 分布形态分析
 
@@ -218,11 +218,11 @@ KDE/QQ 显示主要尾部特征为 `fat_tail`，偏度特征为 `right_skew`，�
 
 ### Stationarity / Hurst / ADF / KPSS
 
-| window_size | hurst | adf_pvalue | kpss_pvalue | trend_score | trend_type | min_lag | effective_max_lag | kpss_warning |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 60 | 0.8115 | 0.0675 | 0.1000 | 3 | conflicting signals (verify further) | 10 | 20 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is greater than the p-value returned.<br> |
-| 120 | 0.5465 | 0.1320 | 0.0100 | 2 | weak trend or counter-trend | 20 | 40 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is smaller than the p-value returned.<br> |
-| 180 | 0.4400 | 0.3603 | 0.0100 | 2 | weak trend or counter-trend | 30 | 60 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is smaller than the p-value returned.<br> |
+| window_size | hurst | adf_pvalue | kpss_pvalue | trend_type | min_lag | effective_max_lag | kpss_warning |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 60 | 0.8115 | 0.0675 | 0.1000 | conflicting signals (verify further) | 10 | 20 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is greater than the p-value returned.<br> |
+| 120 | 0.5465 | 0.1320 | 0.0100 | weak trend or counter-trend | 20 | 40 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is smaller than the p-value returned.<br> |
+| 180 | 0.4400 | 0.3603 | 0.0100 | weak trend or counter-trend | 30 | 60 | The test statistic is outside of the range of p-values available in the<br>look-up table. The actual p-value is smaller than the p-value returned.<br> |
 
 ### KDE / QQ
 

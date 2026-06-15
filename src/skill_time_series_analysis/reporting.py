@@ -53,13 +53,16 @@ def _relative_link(path: str | Path, base_dir: Path | None) -> str:
 def _strategy_directions(
     *,
     hurst: float,
-    trend_score: float,
+    trend_type: str,
     adf_stationary: bool,
     kpss_stationary: bool,
     tail_feature: str,
 ) -> list[str]:
     directions: list[str] = []
-    if trend_score >= 4 or (_is_finite(hurst) and hurst > 0.55 and not kpss_stationary):
+    is_trending = "strong trend" in trend_type or (
+        _is_finite(hurst) and hurst > 0.55 and not kpss_stationary
+    )
+    if is_trending:
         directions.append("适合进一步研究趋势跟随、时间序列动量、突破确认和趋势状态识别等投研方向。")
     elif _is_finite(hurst) and hurst < 0.5 and adf_stationary:
         directions.append("适合进一步研究均值回复、区间震荡、z-score 反转和偏离修复等投研方向。")
@@ -76,17 +79,17 @@ def _strategy_directions(
 def _factor_directions(
     *,
     hurst: float,
-    trend_score: float,
+    trend_type: str,
     skew_feature: str,
     tail_feature: str,
 ) -> list[str]:
     directions: list[str] = []
-    if trend_score >= 4 or (_is_finite(hurst) and hurst > 0.55):
+    if "strong trend" in trend_type or (_is_finite(hurst) and hurst > 0.55):
         directions.append("趋势类因子：滚动收益、均线斜率、价格通道位置、趋势强度和突破持续性。")
     elif _is_finite(hurst) and hurst < 0.5:
         directions.append("均值回复类因子：滚动 z-score、布林带偏离、短期反转和残差回归速度。")
     else:
-        directions.append("状态识别类因子：趋势分数、波动分位、ADF/KPSS 组合标签和 regime filter。")
+        directions.append("状态识别类因子：Hurst 状态、波动分位、ADF/KPSS 组合标签和 regime filter。")
 
     if tail_feature == "fat_tail":
         directions.append("风险类因子：尾部波动、QQ 偏离、极端收益频率和下行波动。")
@@ -127,7 +130,6 @@ def interpret_time_series_analysis(
     hurst = _as_float(latest.get("hurst"))
     adf_pvalue = _as_float(latest.get("adf_pvalue"))
     kpss_pvalue = _as_float(latest.get("kpss_pvalue"))
-    trend_score = _as_float(latest.get("trend_score", analysis.summary.get("trend_score", 0.0)), 0.0)
     trend_type = str(latest.get("trend_type", analysis.summary.get("trend_type", "unknown")))
     tail_feature = str(analysis.summary.get("primary_tail_feature", "unknown"))
     skew_feature = str(analysis.summary.get("primary_skew_feature", "unknown"))
@@ -161,12 +163,25 @@ def interpret_time_series_analysis(
     else:
         memory_text = "Hurst 未能稳定估计，当前样本不适合单独用记忆性判断投研方向。"
 
-    if trend_score >= 4:
-        trend_text = f"trend_score={trend_score:.0f}，`{trend_type}`，趋势性较强，适合先从趋势状态切入。"
-    elif trend_score >= 2:
-        trend_text = f"trend_score={trend_score:.0f}，`{trend_type}`，趋势证据中等或冲突，需要加入过滤条件。"
+    if "strong trend" in trend_type:
+        trend_text = (
+            f"最新窗口被分类为 `{trend_type}`，这是由 Hurst={hurst:.4f}、"
+            f"ADF p-value={adf_pvalue:.4f} 和 KPSS p-value={kpss_pvalue:.4f} "
+            "共同判断出的趋势性证据，适合先从趋势状态切入。"
+        )
+    elif "conflicting" in trend_type:
+        trend_text = (
+            f"最新窗口被分类为 `{trend_type}`，Hurst/ADF/KPSS 给出的趋势性证据不一致，"
+            "需要加入状态过滤条件。"
+        )
+    elif "mean-reverting" in trend_type:
+        trend_text = (
+            f"最新窗口被分类为 `{trend_type}`，趋势延续证据较弱，更适合关注反转和偏离修复。"
+        )
     else:
-        trend_text = f"trend_score={trend_score:.0f}，`{trend_type}`，趋势性较弱，应谨慎使用单一趋势假设。"
+        trend_text = (
+            f"最新窗口被分类为 `{trend_type}`，趋势性不够明确，应谨慎使用单一趋势假设。"
+        )
 
     distribution_text = (
         f"KDE/QQ 显示主要尾部特征为 `{tail_feature}`，偏度特征为 `{skew_feature}`"
@@ -174,7 +189,7 @@ def interpret_time_series_analysis(
         "这说明分布形态会影响止损、仓位和风险预算设计。"
     )
 
-    if trend_score >= 4:
+    if "strong trend" in trend_type:
         one_sentence = "该序列呈现较明显的趋势性和非平稳特征，优先作为趋势类投研方向的候选对象。"
     elif _is_finite(hurst) and hurst < 0.5 and adf_stationary:
         one_sentence = "该序列更接近均值回复或震荡结构，优先作为反转和偏离修复类投研方向的候选对象。"
@@ -189,14 +204,14 @@ def interpret_time_series_analysis(
     }
     strategy_directions = _strategy_directions(
         hurst=hurst,
-        trend_score=trend_score,
+        trend_type=trend_type,
         adf_stationary=adf_stationary,
         kpss_stationary=kpss_stationary,
         tail_feature=tail_feature,
     )
     factor_directions = _factor_directions(
         hurst=hurst,
-        trend_score=trend_score,
+        trend_type=trend_type,
         skew_feature=skew_feature,
         tail_feature=tail_feature,
     )
@@ -210,7 +225,6 @@ def interpret_time_series_analysis(
         summary={
             "one_sentence": one_sentence,
             "n_obs": n_obs,
-            "trend_score": trend_score,
             "trend_type": trend_type,
         },
         properties=properties,

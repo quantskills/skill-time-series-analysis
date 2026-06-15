@@ -26,6 +26,7 @@ from skill_time_series_analysis import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
+REMOVED_TREND_METRIC = "trend" + "_score"
 
 
 def _price_series(n: int = 180) -> pd.Series:
@@ -42,7 +43,9 @@ def test_analyze_price_series_returns_pyramid_result() -> None:
     assert isinstance(result.distribution, DistributionDiagnostics)
     assert result.summary["n_obs"] == 180
     assert "trend_type" in result.summary
-    assert {"window_size", "hurst", "trend_score"}.issubset(result.stationarity.columns)
+    assert REMOVED_TREND_METRIC not in result.summary
+    assert REMOVED_TREND_METRIC not in result.stationarity.columns
+    assert {"window_size", "hurst", "trend_type"}.issubset(result.stationarity.columns)
 
     markdown = result.to_markdown()
     assert markdown.index("## Summary") < markdown.index("## Evidence")
@@ -100,7 +103,8 @@ def test_stationarity_helpers_cover_hurst_adf_and_kpss() -> None:
     assert np.isfinite(hurst)
     assert {"statistic", "pvalue", "lags", "critical_values"}.issubset(adf)
     assert {"statistic", "pvalue", "critical_values", "warning"}.issubset(kpss)
-    assert {"hurst", "adf_pvalue", "kpss_pvalue", "trend_score", "trend_type"}.issubset(
+    assert REMOVED_TREND_METRIC not in stationarity.columns
+    assert {"hurst", "adf_pvalue", "kpss_pvalue", "trend_type"}.issubset(
         stationarity.columns
     )
 
