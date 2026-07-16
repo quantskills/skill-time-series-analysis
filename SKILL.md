@@ -20,6 +20,30 @@ quantSkills:
   summary_en: Conclusion-first time-series diagnostics for original series, Log diff, distributions, stationarity, cointegration, and half-life.
 ---
 
+```json qsh-form
+{
+  "version": 1,
+  "task": {
+    "placeholder": "说明要分析的价格序列、价差或配对关系；请上传数据或指明文件及列名",
+    "required": true
+  },
+  "fields": [
+    {
+      "key": "analysis_type",
+      "label": "分析类型",
+      "type": "select",
+      "default": "single",
+      "options": [
+        { "value": "single", "label": "单一价格序列" },
+        { "value": "spread", "label": "价差/价格差" },
+        { "value": "pair", "label": "双序列协整" }
+      ]
+    }
+  ],
+  "prompt_template": "{{#task}}任务与材料：\n{{task}}\n\n{{/task}}{{#attachments}}用户上传的材料（已放入工作区）：\n{{attachments}}\n\n{{/attachments}}对用户提供的数据执行 {{analysis_type}} 时序诊断，优先使用报告 API，结论先行地解释原序列与 Log diff、KDE/QQ 分布、Hurst/ADF/KPSS 平稳性，并按类型补充价差半衰期或 Engle-Granger 协整；展示关键证据和样本不足、检验冲突、残差不稳等限制，仅提出研究方向而非交易信号，输出中文报告。"
+}
+```
+
 # Time Series Analysis
 
 Use this skill to diagnose price series, spreads, or pairs before choosing a
