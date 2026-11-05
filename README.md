@@ -136,3 +136,6 @@ PANDA_DATA_ENV_FILE=/path/to/.env \
 v1 运行包不包含策略生成、机器学习、三重屏障标签、回测、PandaData 客户端或市场数据
 管理。`tests/test_panda_data_futures_report.py` 只是可选的真实数据 integration 示例，用
 来证明 API 能处理外部期货行情。输出仅用于研究诊断，不构成投资建议或交易信号。
+
+
+Pandadata 兼容维护：[abgyjaguo](https://github.com/abgyjaguo)，保留原项目作者署名。

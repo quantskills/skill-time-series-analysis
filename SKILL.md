@@ -7,7 +7,7 @@ quantSkills:
   repository_url: https://github.com/quantskills/skill-time-series-analysis
   project_type: skill
   collection: quant-research-tools
-  license: GPL-3.0
+  license: GPL-3.0-only
   category: tooling
   tags: [time-series, stationarity, cointegration, mean-reversion, quant-research]
   platforms: [claude-code, codex, openclaw, cursor]
@@ -92,3 +92,7 @@ Always produce:
 
 This skill does not fetch data, run backtests, train ML models, or generate
 trading signals. It provides research diagnostics only.
+
+## Pandadata compatibility
+
+[Pandadata 1.0.6 compatibility](references/pandadata-compatibility.md) — exact SDK baseline, validation scope, and shared guidance for all supported agent runtimes.
