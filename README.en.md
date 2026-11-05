@@ -142,3 +142,6 @@ labels, backtesting, a PandaData client, or market-data management.
 `tests/test_panda_data_futures_report.py` is an optional real-data integration
 example that demonstrates the API on external futures bars. Outputs are research
 diagnostics, not investment advice or trading signals.
+
+
+Pandadata compatibility maintenance: [abgyjaguo](https://github.com/abgyjaguo). Existing authorship is retained.
